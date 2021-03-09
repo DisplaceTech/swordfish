@@ -1,0 +1,12 @@
+version: "3.0"
+services:
+  server:
+    build: .
+    ports:
+      - "8080:8080"
+    links:
+      - redis
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"

@@ -1,0 +1,25 @@
+{
+    "name": "displacetech/swordfish",
+    "description": "Simple secret sharing application.",
+    "type": "project",
+    "require": {
+        "amphp/http-server": "^2.1",
+        "predis/predis": "^1.1",
+        "amphp/log": "^1.1",
+        "amphp/http-server-router": "^1.0",
+        "ext-pcntl": "*"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Eric Mann",
+            "email": "eric@eamann.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "autoload": {
+        "psr-4": {
+            "Swordfish\\Server\\": "src/"
+        }
+    }
+}
