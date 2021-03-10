@@ -1,0 +1,23 @@
+{
+    "name": "displacetech/swordfish-cli",
+    "description": "CLI application for interacting with the Swordfish server.",
+    "type": "project",
+    "require": {
+        "symfony/console": "^5.2",
+        "ext-sodium": "*",
+        "ext-curl": "*"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Eric Mann",
+            "email": "eric@eamann.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "autoload": {
+        "psr-4": {
+            "Swordfish\\CLI\\": "src/"
+        }
+    }
+}
