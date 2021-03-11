@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Truly secure, anonymous secret sharing.">
+    <meta name="author" content="Eric Mann">
+
+    <title>Project Swordfish</title>
+    <link href="/css/bootstrap.css" rel="stylesheet" />
+    <link href="/css/style.css" rel="stylesheet" />
+</head>
+<body>
+
+<main class="container">
+
+    <div class="starter-template text-center py-5 px-3">
+        <h1>Truly Secure, Anonymous Secret Sharing</h1>
+        <p class="lead">Paste your secret text below.<br />Protect it with a password of your choosing.</p>
+    </div>
+    <div class="text-center py-5 px-3">
+        <form id="secretForm">
+            <div class="mb-3">
+                <textarea class="form-control" rows="10" name="secret" id="secret" placeholder="Keep it secret, keep it safe..."></textarea>
+            </div>
+            <div class="mb-3 row">
+                <label class="col-sm-2 col-form-label" for="passphrase">Passphrase</label>
+                <div class="col-sm-10">
+                    <input class="form-control" type="text" id="passphrase" name="passphrase" placeholder="correct battery horse staple" />
+                </div>
+            </div>
+
+            <div class="d-grid gap-2">
+                <button class="btn btn-primary mb-3" type="submit" id="encrypt">Encrypt your secret</button>
+            </div>
+        </form>
+    </div>
+
+</main><!-- /.container -->
+
+
+
+<footer class="footer">
+    <div class="container">
+        <span class="text-muted">Copyright &copy 2021 <a href="https://displace.tech">Displace Technologies, LLC</a></span>
+    </div>
+</footer>
+
+<script src="/js/bootstrap.bundle.js" crossorigin="anonymous"></script>
+<script src="/js/create.js" crossorigin="anonymous"></script>
+
+</body>
+</html>

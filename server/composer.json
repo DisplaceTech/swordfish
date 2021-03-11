@@ -4,9 +4,10 @@
     "type": "project",
     "require": {
         "amphp/http-server": "^2.1",
+        "amphp/http-server-router": "^1.0",
+        "amphp/http-server-static-content": "^1.0",
         "predis/predis": "^1.1",
         "amphp/log": "^1.1",
-        "amphp/http-server-router": "^1.0",
         "ext-pcntl": "*"
     },
     "license": "MIT",
