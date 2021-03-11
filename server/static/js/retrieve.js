@@ -4,19 +4,12 @@ if (secretId !== 'secret') {
     secretContainer.value = secretId;
 }
 
-const pepper = new TextEncoder().encode('d783eff0523c8fa7336bc768c5950f63');
-
 let submitBtn = document.getElementById('retrieve');
 let passphraseFld = document.getElementById('passphrase');
 let secretFld = document.getElementById('secretid');
 
 function fromHexString (hexString) {
     return new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-}
-
-function encodeBuffer(buffer) {
-    let array = Array.from(new Uint8Array(buffer));
-    return array.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 async function decrypt(ciphertext, passkey) {
@@ -55,8 +48,11 @@ async function decrypt(ciphertext, passkey) {
 async function retrieveSecret(event) {
     event.preventDefault();
 
+    let secretText = document.getElementById('secret');
+    secretText.value = '';
+
     if (passphraseFld.value === '' || secretFld.value === '') {
-        alert('Please enter something!')
+        renderError('You must enter a password and a secret ID!');
         return false;
     }
 
@@ -94,13 +90,21 @@ async function retrieveSecret(event) {
         body: payload
     })
 
-    if (response.status === 200) {
-        let ciphertext = await response.text();
+    switch(response.status) {
+        case 200:
+            let ciphertext = await response.text();
 
-        let decoded = await decrypt(ciphertext, passkey);
-        document.getElementById('secret').value = decoder.decode(decoded);
-    } else {
-        alert('Oops. Try again!');
+            let decoded = await decrypt(ciphertext, passkey);
+            secretText.value = decoder.decode(decoded);
+            break;
+        case 401:
+            renderError('Your password is incorrect!');
+            break;
+        case 404:
+            renderError('That secret does not exist.');
+            break;
+        default:
+            renderError('Something broke, but we don\'t know exactly what ...');
     }
 }
 
