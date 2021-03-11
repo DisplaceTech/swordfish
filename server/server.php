@@ -8,6 +8,7 @@ use Amp\Http\Server\RequestHandler\CallableRequestHandler;
 use Amp\Http\Server\Response;
 use Amp\Http\Server\Router;
 use Amp\Http\Server\Server;
+use Amp\Http\Server\StaticContent\DocumentRoot;
 use Amp\Http\Status;
 use Amp\Log\ConsoleFormatter;
 use Amp\Log\StreamHandler;
@@ -31,6 +32,8 @@ Amp\Loop::run(function () {
     $logger = new Logger('server');
     $logger->pushHandler($logHandler);
 
+    $documentRoot = new DocumentRoot(__DIR__ . '/static');
+
     $router = new Router();
 
     /***********************************************************/
@@ -38,18 +41,24 @@ Amp\Loop::run(function () {
     /***********************************************************/
 
     $router->addRoute('GET', '/', new CallableRequestHandler(function () {
-        return new Response(Status::OK, ['content-type' => 'text/plain'], 'Hello, world!');
+        $fp = fopen(__DIR__ . '/content/main.html', 'r');
+        $stream = stream_get_contents($fp);
+
+        return new Response(Status::OK, ['content-type' => 'text/html'], $stream);
     }));
 
     $router->addRoute('GET', '/secret', new CallableRequestHandler(function () {
-        return new Response(Status::OK, ['content-type' => 'text/plain'], 'Moo, unknown');
+        $fp = fopen(__DIR__ . '/content/retrieve.html', 'r');
+        $stream = stream_get_contents($fp);
+
+        return new Response(Status::OK, ['content-type' => 'text/html'], $stream);
     }));
 
     $router->addRoute('GET', '/secret/{secretId}', new CallableRequestHandler(function (Request $request) {
-        $args = $request->getAttribute(Router::class);
-        $secretId = $args['secretId'];
+        $fp = fopen(__DIR__ . '/content/retrieve.html', 'r');
+        $stream = stream_get_contents($fp);
 
-        return new Response(Status::CREATED, ['content-type' => 'text/plain'], 'Moo, ' . $secretId);
+        return new Response(Status::CREATED, ['content-type' => 'text/html'], $stream);
     }));
 
     /***********************************************************/
@@ -105,6 +114,8 @@ Amp\Loop::run(function () {
 
         return new Response(Status::OK, ['content-type' => 'text/plain'], $secret);
     }));
+
+    $router->setFallback($documentRoot);
 
     $server = new Server($servers, $router, $logger);
     yield $server->start();
