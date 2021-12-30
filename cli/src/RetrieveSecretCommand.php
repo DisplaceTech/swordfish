@@ -8,7 +8,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class RetrieveSecretCommand extends Command
 {
-    protected static string $defaultName = 'secret:retrieve';
+    protected static $defaultName = 'secret:retrieve';
 
     protected function configure()
     {
@@ -20,7 +20,7 @@ class RetrieveSecretCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $serverUrl = getenv('SWORDFISH_URL') ?: 'http://localhost:8080';
+        $serverUrl = getenv('SWORDFISH_URL') ?: 'https://swordfish.displace.tech';
 
         $password = $input->getArgument('password');
         $secretId = $input->getArgument('secret-id');
@@ -31,6 +31,7 @@ class RetrieveSecretCommand extends Command
 
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, "{$serverUrl}/retrieve");
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Swordfish CLI');
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: text/plain']);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_POST, 1);
