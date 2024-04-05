@@ -1,6 +1,6 @@
-FROM php:8.0-cli
+FROM php:8.3-cli
 
-RUN pecl install redis-5.3.3 \
+RUN pecl install redis-6.0.2 \
   && docker-php-ext-enable redis
 
 RUN docker-php-ext-install pcntl
