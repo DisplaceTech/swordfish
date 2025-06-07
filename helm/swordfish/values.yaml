@@ -4,8 +4,9 @@ fullnameOverride: ""
 server:
   replicaCount: 1
   image:
-    repository: swordfish
+    repository: ghcr.io/displacetech/swordfish/server
     tag: "latest"
+    sha: ""
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP

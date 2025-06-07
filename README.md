@@ -101,7 +101,14 @@ kubectl create namespace swordfish
 
 2. Install the chart:
 ```bash
+# Using latest version
 helm install swordfish ./helm/swordfish -n swordfish
+
+# Using a specific commit
+helm install swordfish ./helm/swordfish -n swordfish --set server.image.sha=a1b2c3d
+
+# Using a custom tag
+helm install swordfish ./helm/swordfish -n swordfish --set server.image.tag=your-tag
 ```
 
 #### Configuration
@@ -111,8 +118,9 @@ The following table lists the configurable parameters for the Helm chart:
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `server.replicaCount` | Number of server replicas | `1` |
-| `server.image.repository` | Server image repository | `swordfish` |
+| `server.image.repository` | Server image repository | `ghcr.io/displacetech/swordfish/server` |
 | `server.image.tag` | Server image tag | `latest` |
+| `server.image.sha` | Optional SHA override for the tag | `""` |
 | `server.service.type` | Kubernetes service type | `ClusterIP` |
 | `server.service.port` | Service port | `8080` |
 | `redis.architecture` | Redis architecture | `standalone` |
@@ -128,8 +136,12 @@ Example configuration with custom values:
 server:
   replicaCount: 2
   image:
-    repository: your-registry/swordfish
-    tag: v1.0.0
+    # Image is pulled from GitHub Container Registry
+    repository: ghcr.io/displacetech/swordfish/server
+    # Use latest for production
+    tag: "latest"
+    # Optional: Use a specific commit
+    # sha: "a1b2c3d"
   
 ingress:
   enabled: true
