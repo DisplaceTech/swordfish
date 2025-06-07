@@ -8,6 +8,16 @@ server:
     tag: "latest"
     sha: ""
     pullPolicy: IfNotPresent
+  # Image pull secrets configuration
+  imagePullSecrets:
+    # -- Create a pull secret using provided credentials
+    create: false
+    # -- Name of existing pull secret to use
+    name: ""
+    # -- GitHub credentials if creating pull secret
+    github:
+      username: ""
+      token: ""
   service:
     type: ClusterIP
     port: 8080
