@@ -1,0 +1,18 @@
+---
+# Container Registry Cleanup Policy
+# This policy will be applied to the container registry
+
+rules:
+  - name: "Cleanup old commit-tagged images"
+    match:
+      pattern: "sha-*"  # Matches commit hash tags
+    action:
+      type: "delete"
+      keepLast: 0
+      olderThan: "7d"
+
+  - name: "Keep latest tag"
+    match:
+      pattern: "latest"
+    action:
+      type: "keep" 

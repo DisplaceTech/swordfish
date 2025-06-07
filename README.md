@@ -164,6 +164,43 @@ To remove the deployment:
 helm uninstall swordfish -n swordfish
 ```
 
+### CI/CD Pipeline
+
+The project includes a Forgejo CI/CD pipeline that automatically builds and pushes the server container image.
+
+#### Pipeline Behavior
+
+- On Pull Requests:
+  - Builds the server image
+  - Tags with commit SHA (e.g., `sha-a1b2c3d`)
+  - Pushes to container registry
+
+- On Main Branch:
+  - Builds the server image
+  - Tags with both commit SHA and `latest`
+  - Pushes to container registry
+
+#### Container Registry Cleanup
+
+The container registry implements the following lifecycle rules:
+- Images tagged with commit SHAs are automatically deleted after 7 days
+- The `latest` tag is preserved indefinitely
+
+#### Required Secrets
+
+To enable the CI/CD pipeline, you need to configure the following secret in your Forgejo repository:
+
+- `REGISTRY_TOKEN`: Access token for the container registry
+
+#### Manual Builds
+
+For local development, you can still use:
+```bash
+make server-build
+```
+
+This will build the image locally without pushing to the registry.
+
 ## API Endpoints
 
 ### Web Interface
