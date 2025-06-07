@@ -166,33 +166,41 @@ helm uninstall swordfish -n swordfish
 
 ### CI/CD Pipeline
 
-The project includes a Forgejo CI/CD pipeline that automatically builds and pushes the server container image.
+The project uses GitHub Actions to automatically build and push the server container image to GitHub Container Registry (ghcr.io).
 
 #### Pipeline Behavior
 
 - On Pull Requests:
   - Builds the server image
-  - Tags with commit SHA (e.g., `sha-a1b2c3d`)
-  - Pushes to container registry
+  - Runs tests and verifies build
+  - Does not push to registry
 
 - On Main Branch:
   - Builds the server image
-  - Tags with both commit SHA and `latest`
-  - Pushes to container registry
+  - Tags with both commit SHA (e.g., `sha-a1b2c3d`) and `latest`
+  - Pushes to GitHub Container Registry
+  - Images are available at `ghcr.io/<org>/<repo>/server:<tag>`
 
 #### Container Registry Cleanup
 
-The container registry implements the following lifecycle rules:
-- Images tagged with commit SHAs are automatically deleted after 7 days
-- The `latest` tag is preserved indefinitely
+GitHub Container Registry provides automatic cleanup of untagged container images after 30 days. The `latest` tag and any specific version tags are preserved indefinitely.
 
-#### Required Secrets
+#### Required Setup
 
-To enable the CI/CD pipeline, you need to configure the following secret in your Forgejo repository:
+1. Ensure your repository has GitHub Actions enabled
+2. The workflow uses `GITHUB_TOKEN` which is automatically provided
+3. GitHub Container Registry permissions are automatically handled by the workflow
 
-- `REGISTRY_TOKEN`: Access token for the container registry
+#### Using the Container Images
 
-#### Manual Builds
+In your Kubernetes deployment:
+```yaml
+# values.yaml
+server:
+  image:
+    repository: ghcr.io/<org>/<repo>/server
+    tag: "latest"  # or specific SHA
+```
 
 For local development, you can still use:
 ```bash
