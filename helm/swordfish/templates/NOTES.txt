@@ -1,0 +1,29 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }}.
+
+The server is using image: {{ .Values.server.image.repository }}:{{ .Values.server.image.tag }}{{ if .Values.server.image.sha }}-{{ .Values.server.image.sha }}{{ end }}
+
+{{- if .Values.ingress.enabled }}
+You can access the application at:
+{{- range $host := .Values.ingress.hosts }}
+  - http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}
+{{- end }}
+{{- else }}
+To access the application, you need to either:
+1. Enable ingress in values.yaml, or
+2. Port-forward the service:
+   kubectl port-forward svc/{{ include "swordfish.fullname" . }} 8080:{{ .Values.server.service.port }}
+{{- end }}
+
+To use a specific image version:
+1. Latest version (default):
+   --set server.image.tag=latest
+
+2. Specific commit:
+   --set server.image.sha=a1b2c3d
+
+3. Custom tag:
+   --set server.image.tag=your-tag
+
+For more information, see the README.md in the chart directory. 
