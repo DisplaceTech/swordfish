@@ -24,10 +24,12 @@ A secure, anonymous secret sharing application that allows users to share sensit
 
 ## Prerequisites
 
-- Docker and Docker Compose
+- Docker and Docker Compose (for local development)
 - Make
 - PHP 8.4+ (for local development)
 - Composer (for local development)
+- Kubernetes 1.19+ (for production deployment)
+- Helm 3.0+ (for production deployment)
 
 ## Development Setup
 
@@ -56,9 +58,9 @@ make server-down
 make cli-install
 ```
 
-## Docker Configuration
+## Deployment Options
 
-### Server Component
+### Docker Configuration
 
 The server runs two containers:
 1. PHP Server (Amphp-based HTTP server)
@@ -74,12 +76,93 @@ The server runs two containers:
    - Handles automatic expiration
    - Exposes port 6379 (for internal use)
 
-### Development Mode
+#### Development Mode
 
 For development, the server component includes a `docker-compose.dev.yml` that:
 - Mounts the local `/server` directory into the container
 - Enables hot-reloading of PHP files
 - Uses the `swordfish:local` image tag
+
+### Kubernetes Deployment
+
+The application can be deployed to Kubernetes using the provided Helm chart.
+
+#### Prerequisites
+- Kubernetes cluster 1.19+
+- Helm 3.0+
+- Ingress controller (optional, for ingress support)
+
+#### Installation
+
+1. Create the namespace:
+```bash
+kubectl create namespace swordfish
+```
+
+2. Install the chart:
+```bash
+helm install swordfish ./helm/swordfish -n swordfish
+```
+
+#### Configuration
+
+The following table lists the configurable parameters for the Helm chart:
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `server.replicaCount` | Number of server replicas | `1` |
+| `server.image.repository` | Server image repository | `swordfish` |
+| `server.image.tag` | Server image tag | `latest` |
+| `server.service.type` | Kubernetes service type | `ClusterIP` |
+| `server.service.port` | Service port | `8080` |
+| `redis.architecture` | Redis architecture | `standalone` |
+| `redis.auth.enabled` | Enable Redis authentication | `false` |
+| `ingress.enabled` | Enable ingress | `false` |
+| `ingress.className` | Ingress class name | `""` |
+| `ingress.hosts` | Ingress hosts configuration | `[{host: swordfish.local, paths: [{path: /, pathType: Prefix}]}]` |
+
+Example configuration with custom values:
+
+```yaml
+# values.yaml
+server:
+  replicaCount: 2
+  image:
+    repository: your-registry/swordfish
+    tag: v1.0.0
+  
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: swordfish.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: swordfish-tls
+      hosts:
+        - swordfish.example.com
+```
+
+Install with custom values:
+```bash
+helm install swordfish ./helm/swordfish -n swordfish -f values.yaml
+```
+
+#### Upgrading
+
+To upgrade an existing deployment:
+```bash
+helm upgrade swordfish ./helm/swordfish -n swordfish
+```
+
+#### Uninstalling
+
+To remove the deployment:
+```bash
+helm uninstall swordfish -n swordfish
+```
 
 ## API Endpoints
 
