@@ -7,7 +7,7 @@ server:
     repository: ghcr.io/displacetech/swordfish/server
     tag: "latest"
     sha: ""
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   # Image pull secrets configuration
   imagePullSecrets:
     # -- Create a pull secret using provided credentials
