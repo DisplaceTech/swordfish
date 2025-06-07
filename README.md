@@ -170,16 +170,21 @@ The project uses GitHub Actions to automatically build and push the server conta
 
 #### Pipeline Behavior
 
-- On Pull Requests:
+- On Branch Pushes:
   - Builds the server image
-  - Runs tests and verifies build
-  - Does not push to registry
+  - Tags with commit SHA (e.g., `sha-a1b2c3d`)
+  - Pushes to GitHub Container Registry
 
 - On Main Branch:
   - Builds the server image
-  - Tags with both commit SHA (e.g., `sha-a1b2c3d`) and `latest`
+  - Tags with both commit SHA and `latest`
   - Pushes to GitHub Container Registry
   - Images are available at `ghcr.io/<org>/<repo>/server:<tag>`
+
+- On Pull Requests from Forks:
+  - Builds the server image
+  - Runs tests and verifies build
+  - Does not push to registry (for security)
 
 #### Container Registry Cleanup
 
@@ -199,7 +204,10 @@ In your Kubernetes deployment:
 server:
   image:
     repository: ghcr.io/<org>/<repo>/server
-    tag: "latest"  # or specific SHA
+    # Use latest for production
+    tag: "latest"  
+    # Or use a specific commit for immutable deployments
+    # tag: "sha-a1b2c3d"
 ```
 
 For local development, you can still use:
