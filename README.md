@@ -91,6 +91,7 @@ The application can be deployed to Kubernetes using the provided Helm chart.
 - Kubernetes cluster 1.19+
 - Helm 3.0+
 - Ingress controller (optional, for ingress support)
+- GitHub Personal Access Token with `read:packages` scope (for pulling images)
 
 #### Installation
 
@@ -99,16 +100,51 @@ The application can be deployed to Kubernetes using the provided Helm chart.
 kubectl create namespace swordfish
 ```
 
-2. Install the chart:
+2. Configure GitHub Container Registry Authentication:
+
+The server image is hosted on GitHub Container Registry (ghcr.io) and requires authentication to pull. You have two options:
+
+Option 1: Let Helm create the pull secret (recommended):
 ```bash
-# Using latest version
-helm install swordfish ./helm/swordfish -n swordfish
+helm install swordfish ./helm/swordfish -n swordfish \
+  --set server.imagePullSecrets.create=true \
+  --set server.imagePullSecrets.github.username=YOUR_GITHUB_USERNAME \
+  --set server.imagePullSecrets.github.token=YOUR_GITHUB_PAT
+```
 
-# Using a specific commit
-helm install swordfish ./helm/swordfish -n swordfish --set server.image.sha=a1b2c3d
+Option 2: Create a pull secret manually and reference it:
+```bash
+# Create the secret manually
+kubectl create secret docker-registry ghcr-auth \
+  --docker-server=ghcr.io \
+  --docker-username=YOUR_GITHUB_USERNAME \
+  --docker-password=YOUR_GITHUB_PAT \
+  -n swordfish
 
-# Using a custom tag
-helm install swordfish ./helm/swordfish -n swordfish --set server.image.tag=your-tag
+# Use the existing secret in Helm
+helm install swordfish ./helm/swordfish -n swordfish \
+  --set server.imagePullSecrets.name=ghcr-auth
+```
+
+For production deployments, you can include the authentication in your values file:
+```yaml
+# values.yaml
+server:
+  imagePullSecrets:
+    create: true
+    github:
+      username: YOUR_GITHUB_USERNAME
+      token: YOUR_GITHUB_PAT
+  
+  # Other configuration...
+  image:
+    repository: ghcr.io/displacetech/swordfish/server
+    tag: "latest"    # or specific SHA
+```
+
+Then install with:
+```bash
+helm install swordfish ./helm/swordfish -n swordfish -f values.yaml
 ```
 
 #### Configuration
@@ -121,6 +157,10 @@ The following table lists the configurable parameters for the Helm chart:
 | `server.image.repository` | Server image repository | `ghcr.io/displacetech/swordfish/server` |
 | `server.image.tag` | Server image tag | `latest` |
 | `server.image.sha` | Optional SHA override for the tag | `""` |
+| `server.imagePullSecrets.create` | Create a new pull secret | `false` |
+| `server.imagePullSecrets.name` | Name of existing pull secret to use | `""` |
+| `server.imagePullSecrets.github.username` | GitHub username for pull secret | `""` |
+| `server.imagePullSecrets.github.token` | GitHub PAT for pull secret | `""` |
 | `server.service.type` | Kubernetes service type | `ClusterIP` |
 | `server.service.port` | Service port | `8080` |
 | `redis.architecture` | Redis architecture | `standalone` |
@@ -129,19 +169,23 @@ The following table lists the configurable parameters for the Helm chart:
 | `ingress.className` | Ingress class name | `""` |
 | `ingress.hosts` | Ingress hosts configuration | `[{host: swordfish.local, paths: [{path: /, pathType: Prefix}]}]` |
 
-Example configuration with custom values:
+Example configuration with custom values and authentication:
 
 ```yaml
 # values.yaml
 server:
   replicaCount: 2
   image:
-    # Image is pulled from GitHub Container Registry
     repository: ghcr.io/displacetech/swordfish/server
-    # Use latest for production
     tag: "latest"
-    # Optional: Use a specific commit
-    # sha: "a1b2c3d"
+    # sha: "a1b2c3d"  # Optional: Use specific commit
+  
+  # GitHub Container Registry authentication
+  imagePullSecrets:
+    create: true
+    github:
+      username: YOUR_GITHUB_USERNAME
+      token: YOUR_GITHUB_PAT
   
 ingress:
   enabled: true
@@ -155,11 +199,6 @@ ingress:
     - secretName: swordfish-tls
       hosts:
         - swordfish.example.com
-```
-
-Install with custom values:
-```bash
-helm install swordfish ./helm/swordfish -n swordfish -f values.yaml
 ```
 
 #### Upgrading
