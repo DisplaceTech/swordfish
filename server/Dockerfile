@@ -5,7 +5,7 @@ FROM composer:latest AS builder
 WORKDIR /build
 
 # Copy only composer files first
-COPY server/ /build
+COPY . /build
 
 # Install dependencies
 RUN composer install --ignore-platform-reqs --no-scripts
@@ -22,7 +22,7 @@ RUN docker-php-ext-install pcntl
 WORKDIR /var/www/html
 
 # Copy application files
-COPY server/ /var/www/html/
+COPY . /var/www/html/
 COPY --from=builder /build/vendor/ /var/www/html/vendor/
 
 # Fix permissions
@@ -34,4 +34,4 @@ ENV SERVER_PORT=8080
 
 EXPOSE 8080
 
-CMD ["php", "server.php"]
+CMD ["php", "server.php"] 
