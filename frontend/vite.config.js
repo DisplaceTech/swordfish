@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import preact from '@preact/preset-vite'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [preact()],
   build: {
-    outDir: '../server/static',
-    emptyOutDir: false,
+    outDir: '../server/static/dist',
+    emptyOutDir: true,
   },
 })
