@@ -1,0 +1,12 @@
+Liveness and readiness probes are already implemented in the Helm chart.
+
+- helm/swordfish/templates/deployment.yaml (lines 36-39) renders both
+  livenessProbe and readinessProbe from values.
+- helm/swordfish/values.yaml (lines 31-46) defines httpGet probes on
+  path: /health, port: http with failureThreshold: 3 for both probes.
+
+Running `helm template` confirms the rendered Deployment includes:
+  livenessProbe.httpGet.path: /health
+  readinessProbe.httpGet.path: /health
+
+All acceptance criteria for DIS-839 are already satisfied. No changes needed.
