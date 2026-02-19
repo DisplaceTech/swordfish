@@ -49,6 +49,16 @@ redis:
         cpu: 200m
         memory: 256Mi
 
+keel:
+  # -- Keel update policy: "force" for latest tag, "semver" for tagged releases, "glob" for pattern matching
+  policy: "force"
+  # -- Keel trigger type: "poll" to periodically check for new images, "pubsub" for event-driven updates
+  trigger: "poll"
+  # -- Poll schedule (cron or @every syntax); only used when trigger is "poll"
+  pollSchedule: "@every 5m"
+  # -- Only update when the image tag matches the currently deployed tag
+  matchTag: "true"
+
 ingress:
   enabled: false
   className: ""
