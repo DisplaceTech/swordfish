@@ -46,7 +46,7 @@ class RetrieveSecretCommandTest extends TestCase
         $status = $tester->execute(['secret-id' => 'abc123', 'password' => 'pass']);
 
         $this->assertSame(Command::FAILURE, $status);
-        $this->assertStringContainsString('Server error: Not found or expired', $tester->getDisplay());
+        $this->assertStringContainsString('Secret not found or has expired.', $tester->getDisplay());
     }
 
     public function testErrorJsonResponseWithAuthFailure(): void
@@ -55,7 +55,7 @@ class RetrieveSecretCommandTest extends TestCase
         $status = $tester->execute(['secret-id' => 'abc123', 'password' => 'pass']);
 
         $this->assertSame(Command::FAILURE, $status);
-        $this->assertStringContainsString('Server error: Invalid authorization', $tester->getDisplay());
+        $this->assertStringContainsString('Wrong password: the password you entered is incorrect.', $tester->getDisplay());
     }
 
     public function testMissingEncryptedSecretInJsonResponse(): void
@@ -83,7 +83,7 @@ class RetrieveSecretCommandTest extends TestCase
         $status = $tester->execute(['secret-id' => 'abc123', 'password' => 'pass']);
 
         $this->assertSame(Command::FAILURE, $status);
-        $this->assertStringContainsString('Secret is either not found or expired!', $tester->getDisplay());
+        $this->assertStringContainsString('Secret not found or has expired.', $tester->getDisplay());
     }
 
     public function testV1InvalidAuthResponse(): void
@@ -92,7 +92,7 @@ class RetrieveSecretCommandTest extends TestCase
         $status = $tester->execute(['secret-id' => 'abc123', 'password' => 'pass']);
 
         $this->assertSame(Command::FAILURE, $status);
-        $this->assertStringContainsString('Invalid password!', $tester->getDisplay());
+        $this->assertStringContainsString('Wrong password: the password you entered is incorrect.', $tester->getDisplay());
     }
 
     public function testMalformedJsonFallsBackToV1(): void
