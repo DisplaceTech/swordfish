@@ -11,5 +11,6 @@ $application = new Application();
 
 $application->add(new \Swordfish\CLI\CreateSecretCommand());
 $application->add(new \Swordfish\CLI\RetrieveSecretCommand());
+$application->add(new \Swordfish\CLI\SecretInfoCommand());
 
 $application->run();
