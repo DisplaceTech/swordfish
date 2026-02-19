@@ -32,8 +32,8 @@ server:
     httpGet:
       path: /health
       port: http
-    initialDelaySeconds: 10
-    periodSeconds: 15
+    initialDelaySeconds: 30
+    periodSeconds: 10
     timeoutSeconds: 5
     failureThreshold: 3
   readinessProbe:
@@ -41,7 +41,7 @@ server:
       path: /health
       port: http
     initialDelaySeconds: 5
-    periodSeconds: 10
+    periodSeconds: 5
     timeoutSeconds: 5
     failureThreshold: 3
   nodeSelector: {}
