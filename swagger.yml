@@ -145,7 +145,7 @@ paths:
                 description: "Client-side encrypted payload: hex(salt)$hex(verifier)$hex(secret)"
               ttl:
                 type: "integer"
-                description: "Secret lifetime in seconds (1–604800). Defaults to 86400."
+                description: "Secret lifetime in seconds. Allowed values: 3600, 21600, 86400, 259200, 604800. Defaults to 86400."
               max_views:
                 type: "integer"
                 description: "Maximum retrieval count. Allowed values: 0 (unlimited), 1, 3, 5, 10. Defaults to 0."
@@ -187,7 +187,7 @@ paths:
                 type: "string"
                 example: "Request body exceeds maximum allowed size"
         "422":
-          description: "Unprocessable Entity — TTL out of range or invalid max_views"
+          description: "Unprocessable Entity — disallowed TTL value or invalid max_views"
           schema:
             type: "object"
             properties:
@@ -196,7 +196,7 @@ paths:
                 example: "Unprocessable Entity"
               message:
                 type: "string"
-                example: "TTL must be between 1 and 604800 seconds."
+                example: "TTL must be one of: 3600, 21600, 86400, 259200, 604800 seconds."
   /api/retrieve:
     post:
       summary: "Retrieve a secret from the datastore."

@@ -5,7 +5,7 @@ namespace Swordfish\Server;
 class CreateRequest
 {
     const DEFAULT_TTL = 86400;
-    const MAX_TTL = 604800;
+    const ALLOWED_TTLS = [3600, 21600, 86400, 259200, 604800];
     const ALLOWED_MAX_VIEWS = [0, 1, 3, 5, 10];
 
     protected string $salt;
@@ -102,8 +102,8 @@ class CreateRequest
         $ttl = self::DEFAULT_TTL;
         if (isset($parsed['ttl'])) {
             $ttl = (int) $parsed['ttl'];
-            if ($ttl < 1 || $ttl > self::MAX_TTL) {
-                throw new \InvalidArgumentException(sprintf('TTL must be between 1 and %d seconds.', self::MAX_TTL));
+            if (!in_array($ttl, self::ALLOWED_TTLS, true)) {
+                throw new \InvalidArgumentException(sprintf('TTL must be one of: %s seconds.', implode(', ', self::ALLOWED_TTLS)));
             }
         }
 
@@ -153,8 +153,8 @@ class CreateRequest
        $ttl = self::DEFAULT_TTL;
        if (sizeof($parts) >= 4) {
            $ttl = (int) $parts[3];
-           if ($ttl < 1 || $ttl > self::MAX_TTL) {
-               throw new \InvalidArgumentException(sprintf('TTL must be between 1 and %d seconds.', self::MAX_TTL));
+           if (!in_array($ttl, self::ALLOWED_TTLS, true)) {
+               throw new \InvalidArgumentException(sprintf('TTL must be one of: %s seconds.', implode(', ', self::ALLOWED_TTLS)));
            }
        }
 

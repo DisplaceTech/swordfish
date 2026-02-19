@@ -105,6 +105,29 @@ class CreateRequestTest extends TestCase
         CreateRequest::fromString("{$salt}\${$verifier}\${$secret}\$3600\$5\$extra");
     }
 
+    public function testFromStringRejectsDisallowedTtlValue(): void
+    {
+        $salt     = bin2hex(str_repeat('a', 16));
+        $verifier = bin2hex(str_repeat('b', 32));
+        $secret   = bin2hex('mysecret');
+
+        $this->expectException(\InvalidArgumentException::class);
+        CreateRequest::fromString("{$salt}\${$verifier}\${$secret}\$7200");
+    }
+
+    /**
+     * @dataProvider allowedTtlProvider
+     */
+    public function testFromStringAcceptsAllowedTtlValues(int $ttl): void
+    {
+        $salt     = bin2hex(str_repeat('a', 16));
+        $verifier = bin2hex(str_repeat('b', 32));
+        $secret   = bin2hex('mysecret');
+
+        $request = CreateRequest::fromString("{$salt}\${$verifier}\${$secret}\${$ttl}");
+        $this->assertSame($ttl, $request->ttl());
+    }
+
     // -------------------------------------------------------------------------
     // fromJson()
     // -------------------------------------------------------------------------
@@ -148,6 +171,44 @@ class CreateRequestTest extends TestCase
     {
         $this->expectException(\Exception::class);
         CreateRequest::fromJson('not-json');
+    }
+
+    /**
+     * @dataProvider allowedTtlProvider
+     */
+    public function testFromJsonAcceptsAllowedTtlValues(int $ttl): void
+    {
+        $json = json_encode([
+            'encrypted_secret' => $this->validEncryptedSecret(),
+            'ttl'              => $ttl,
+        ]);
+
+        $request = CreateRequest::fromJson($json);
+        $this->assertSame($ttl, $request->ttl());
+    }
+
+    public static function allowedTtlProvider(): array
+    {
+        return [[3600], [21600], [86400], [259200], [604800]];
+    }
+
+    /**
+     * @dataProvider disallowedTtlProvider
+     */
+    public function testFromJsonThrowsOnDisallowedTtlValue(int $ttl): void
+    {
+        $json = json_encode([
+            'encrypted_secret' => $this->validEncryptedSecret(),
+            'ttl'              => $ttl,
+        ]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        CreateRequest::fromJson($json);
+    }
+
+    public static function disallowedTtlProvider(): array
+    {
+        return [[1], [1800], [7200], [43200], [9999999]];
     }
 
     public function testFromJsonThrowsOnInvalidTtl(): void
