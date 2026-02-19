@@ -27,6 +27,12 @@ PHP secret-sharing application using the Amphp async HTTP server framework. Secr
 - `helm/` — Helm chart for Kubernetes deployment
 - `swagger.yml` — OpenAPI 2.0 spec (update when adding routes)
 
+## SecretService Storage Patterns
+- **v1 (text API)**: `create(CreateRequest)` → stores `verifier:{id}` + `secret:{id}`
+- **JSON API (view-limited)**: `createJson(CreateRequest)` → stores `json_verifier:{id}` + `json_secret:{id}` + `json_expires:{id}` + optional `json_views:{id}`
+- **JSON API (CLI endpoint)**: `createJsonApi(encryptedSecret, verifier, ttl, maxViews)` → same `json_*` keys; named differently to avoid conflict with `createJson(CreateRequest)`
+- **Retrieve JSON**: `retrieveJson(secretID, verifier)` → reads `json_*` keys; `views_remaining` is `null` when no views key (unlimited)
+
 ## Key Patterns
 - **Route registration**: Add `$router->addRoute(METHOD, PATH, ServerRoutes::handlerName(...))` in `server.php`
 - **Handler factory**: Add a `public static function handlerName(Logger, Client): CallableRequestHandler` to `ServerRoutes.php`
