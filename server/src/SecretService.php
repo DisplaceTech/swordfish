@@ -13,6 +13,7 @@ class SecretService
      *
      * Generates a random 12-character hex ID, stores the verifier hash with the
      * requested TTL, and stores the secret payload with a 30-second grace period.
+     * Also stores JSON-API keys (json_*) to support the view-limited retrieve endpoint.
      *
      * @param CreateRequest $request
      * @return string The generated secret ID
@@ -23,9 +24,28 @@ class SecretService
         $secretKey   = "secret:{$secretID}";
         $verifierKey = "verifier:{$secretID}";
         $ttl         = $request->ttl();
+        $views       = $request->views();
 
         $this->redis->setex($verifierKey, $ttl, $request->verifier());
         $this->redis->setex($secretKey, $ttl + 30, $request->secret());
+
+        // Also store JSON-API keys so the view-limited retrieve endpoint works.
+        $jsonVerifierKey = "json_verifier:{$secretID}";
+        $jsonSecretKey   = "json_secret:{$secretID}";
+        $jsonViewsKey    = "json_views:{$secretID}";
+        $jsonExpiresKey  = "json_expires:{$secretID}";
+
+        $expiresAt = time() + $ttl;
+        $this->redis->setex($jsonVerifierKey, $ttl, $request->verifier());
+        $this->redis->setex($jsonSecretKey, $ttl + 30, $request->secret());
+        $this->redis->setex($jsonExpiresKey, $ttl + 30, (string) $expiresAt);
+
+        if ($views > 0) {
+            $this->redis->setex($jsonViewsKey, $ttl, (string) $views);
+        } else {
+            // Unlimited: use a large sentinel value that won't be exhausted in practice.
+            $this->redis->setex($jsonViewsKey, $ttl, (string) PHP_INT_MAX);
+        }
 
         return $secretID;
     }

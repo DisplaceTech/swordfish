@@ -9,17 +9,23 @@
  * Create a new secret in the datastore.
  *
  * Sends a plain-text payload to POST /api/create in the format:
- *   hex(salt)$hex(verifier)$hex(secret)[$ttl]
+ *   hex(salt)$hex(verifier)$hex(secret)[$ttl[$views]]
  *
- * @param {string} payload - Serialized secret string
+ * @param {string} encryptedPayload - hex(salt)$hex(verifier)$hex(nonce‖ciphertext) from encryptSecret()
+ * @param {number} ttl   - Time-to-live in seconds
+ * @param {number} views - Maximum view count (0 = unlimited)
  * @returns {Promise<string>} The secret ID assigned by the server
  * @throws {Error} On HTTP error or network failure
  */
-export async function createSecret(payload) {
+export async function createSecret(encryptedPayload, ttl, views) {
+  const body = views > 0
+    ? `${encryptedPayload}$${ttl}$${views}`
+    : `${encryptedPayload}$${ttl}`
+
   const response = await fetch('/api/create', {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: payload,
+    body,
   })
 
   if (!response.ok) {

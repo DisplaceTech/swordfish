@@ -29,10 +29,11 @@ class SecretServiceTest extends TestCase
     {
         $redis = $this->makeRedisMock();
 
-        $redis->expects($this->exactly(2))
+        // create() stores 6 keys: verifier:, secret:, json_verifier:, json_secret:,
+        // json_expires:, json_views:
+        $redis->expects($this->exactly(6))
             ->method('setex')
             ->willReturnCallback(function (string $key, int $ttl, string $value) {
-                // Both keys must be set with a positive TTL
                 $this->assertGreaterThan(0, $ttl);
                 $this->assertNotEmpty($value);
             });
@@ -54,7 +55,7 @@ class SecretServiceTest extends TestCase
         $redis = $this->makeRedisMock();
 
         $capturedCalls = [];
-        $redis->expects($this->exactly(2))
+        $redis->expects($this->exactly(6))
             ->method('setex')
             ->willReturnCallback(function (string $key, int $ttl, string $value) use (&$capturedCalls) {
                 $capturedCalls[] = ['key' => $key, 'ttl' => $ttl];
@@ -80,10 +81,53 @@ class SecretServiceTest extends TestCase
         $this->assertSame(3630, array_values($secretCall)[0]['ttl']);
 
         // Both keys must reference the same secretID
-        $verifierID = substr(array_values($verifierCall)[0]['key'], strlen('verifier:'));
+        $verifierID  = substr(array_values($verifierCall)[0]['key'], strlen('verifier:'));
         $secretKeyID = substr(array_values($secretCall)[0]['key'], strlen('secret:'));
         $this->assertSame($secretID, $verifierID);
         $this->assertSame($secretID, $secretKeyID);
+    }
+
+    public function testCreateStoresJsonKeysWithMatchingTtl(): void
+    {
+        $redis = $this->makeRedisMock();
+
+        $capturedCalls = [];
+        $redis->expects($this->exactly(6))
+            ->method('setex')
+            ->willReturnCallback(function (string $key, int $ttl, string $value) use (&$capturedCalls) {
+                $capturedCalls[] = ['key' => $key, 'ttl' => $ttl];
+            });
+
+        $service = new SecretService($redis);
+        $request = new CreateRequest(
+            str_repeat('a', 16),
+            str_repeat('b', 32),
+            'payload',
+            7200,
+            3
+        );
+
+        $secretID = $service->create($request);
+
+        $jsonVerifier = array_filter($capturedCalls, fn($c) => str_starts_with($c['key'], 'json_verifier:'));
+        $jsonSecret   = array_filter($capturedCalls, fn($c) => str_starts_with($c['key'], 'json_secret:'));
+        $jsonViews    = array_filter($capturedCalls, fn($c) => str_starts_with($c['key'], 'json_views:'));
+        $jsonExpires  = array_filter($capturedCalls, fn($c) => str_starts_with($c['key'], 'json_expires:'));
+
+        $this->assertCount(1, $jsonVerifier);
+        $this->assertCount(1, $jsonSecret);
+        $this->assertCount(1, $jsonViews);
+        $this->assertCount(1, $jsonExpires);
+
+        $this->assertSame(7200, array_values($jsonVerifier)[0]['ttl']);
+        $this->assertSame(7230, array_values($jsonSecret)[0]['ttl']);
+
+        // All json_* keys must reference the same secretID
+        foreach ([$jsonVerifier, $jsonSecret, $jsonViews, $jsonExpires] as $calls) {
+            $key = array_values($calls)[0]['key'];
+            $id  = substr($key, strpos($key, ':') + 1);
+            $this->assertSame($secretID, $id);
+        }
     }
 
     // -------------------------------------------------------------------------
