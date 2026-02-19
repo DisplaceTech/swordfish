@@ -5,10 +5,10 @@ metadata:
   labels:
     {{- include "swordfish.labels" . | nindent 4 }}
   annotations:
-    keel.sh/policy: "force"
-    keel.sh/trigger: "poll"
-    keel.sh/pollSchedule: "@every 5m"
-    keel.sh/match-tag: "true"
+    keel.sh/policy: {{ .Values.keel.policy | quote }}
+    keel.sh/trigger: {{ .Values.keel.trigger | quote }}
+    keel.sh/pollSchedule: {{ .Values.keel.pollSchedule | quote }}
+    keel.sh/match-tag: {{ .Values.keel.matchTag | quote }}
 spec:
   replicas: {{ .Values.server.replicaCount }}
   selector:
