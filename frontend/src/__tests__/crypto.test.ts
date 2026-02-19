@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { encrypt, decrypt } from '../crypto'
+import { encrypt, decrypt, getVerifier } from '../crypto'
 
 // Known v1 test vectors — pre-computed with fixed salt, nonce, passphrase, and plaintext.
 // These pin the exact PBKDF2 + AES-256-GCM output so any regression in the crypto
@@ -124,5 +124,33 @@ describe('crypto', () => {
     // And the full round-trip decrypts correctly
     const result = await decrypt(blob, V1_VECTORS.passphrase)
     expect(result).toBe(V1_VECTORS.plaintext)
+  })
+})
+
+describe('getVerifier', () => {
+  it('returns a 64-char lowercase hex string', async () => {
+    const verifier = await getVerifier('test-passphrase')
+    expect(verifier).toHaveLength(64)
+    expect(verifier).toMatch(/^[0-9a-f]+$/)
+  })
+
+  it('is deterministic for the same passphrase', async () => {
+    const v1 = await getVerifier('my-passphrase')
+    const v2 = await getVerifier('my-passphrase')
+    expect(v1).toBe(v2)
+  })
+
+  it('differs for different passphrases', async () => {
+    const v1 = await getVerifier('passphrase-one')
+    const v2 = await getVerifier('passphrase-two')
+    expect(v1).not.toBe(v2)
+  })
+
+  it('matches the verifier embedded in the encrypt output', async () => {
+    const passphrase = 'shared-passphrase'
+    const creationString = await encrypt('any plaintext', passphrase)
+    const embeddedVerifier = creationString.split('$')[1]
+    const standaloneVerifier = await getVerifier(passphrase)
+    expect(standaloneVerifier).toBe(embeddedVerifier)
   })
 })

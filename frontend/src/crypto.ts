@@ -69,6 +69,18 @@ export async function encrypt(plaintext: string, passphrase: string): Promise<st
 }
 
 /**
+ * Derive the hex-encoded verifier for a passphrase.
+ *
+ * The verifier is a PBKDF2 digest over the fixed pepper, used by the server to
+ * authenticate retrieval requests without storing the passphrase.
+ */
+export async function getVerifier(passphrase: string): Promise<string> {
+  const passkey = await importPassphrase(passphrase)
+  const verifier = await deriveVerifier(passkey)
+  return toHex(verifier)
+}
+
+/**
  * Decrypt a ciphertext blob returned by the server with a passphrase.
  *
  * The blob is the hex-encoded concatenation of salt (16 bytes), nonce (12 bytes),
