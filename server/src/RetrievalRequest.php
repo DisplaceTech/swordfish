@@ -24,6 +24,16 @@ class RetrievalRequest
     }
 
     /**
+     * Get the plain-text verifier submitted with the request.
+     *
+     * @return string
+     */
+    public function verifier(): string
+    {
+        return $this->verifier;
+    }
+
+    /**
      * Verify the submitted password against a known/stored password hash.
      *
      * @param string $hash

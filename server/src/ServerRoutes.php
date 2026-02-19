@@ -90,11 +90,12 @@ class ServerRoutes
      *
      * @param Logger $logger
      * @param Client $redisClient
-     * @return Callable
+     * @return CallableRequestHandler
      */
     public static function createSecret(Logger $logger, Client $redisClient): CallableRequestHandler
     {
-        return new CallableRequestHandler(function(Request $request) use ($logger, $redisClient) {
+        $service = new SecretService($redisClient);
+        return new CallableRequestHandler(function(Request $request) use ($logger, $service) {
             $data = yield $request->getBody()->read();
             if (strlen($data) > 100 * 1000) {
                 $logger->error('Message payload too large!');
@@ -111,14 +112,7 @@ class ServerRoutes
                 return new Response(Status::BAD_REQUEST, ['content-type' => 'text/plain'], 'Bad Request');
             }
 
-            $secretID = bin2hex(random_bytes(6));
-            $secretKey = "secret:{$secretID}";
-            $verifierKey = "verifier:{$secretID}";
-
-            $ttl = $secretRequest->ttl();
-            $redisClient->setex($verifierKey, $ttl, $secretRequest->verifier());
-            $redisClient->setex($secretKey, $ttl + 30, $secretRequest->secret());
-
+            $secretID = $service->create($secretRequest);
             $logger->info(sprintf('Created secret %s', $secretID));
 
             return new Response(Status::CREATED, ['content-type' => 'text/plain'], $secretID);
@@ -163,7 +157,8 @@ class ServerRoutes
      */
     public static function retrieveSecret(Logger $logger, Client $redisClient): CallableRequestHandler
     {
-        return new CallableRequestHandler(function (Request $request) use ($logger, $redisClient) {
+        $service = new SecretService($redisClient);
+        return new CallableRequestHandler(function (Request $request) use ($logger, $service) {
             $data = yield $request->getBody()->read();
 
             try {
@@ -174,22 +169,14 @@ class ServerRoutes
             }
 
             $secretID = $retrievalRequest->ID();
-            $secretKey = "secret:{$secretID}";
-            $verifierKey = "verifier:{$secretID}";
+            $verifier = $retrievalRequest->verifier();
 
-            $hash = $redisClient->get($verifierKey);
-            if ($hash === null) {
-                $logger->error(sprintf('Secret %s was requested but verification code was not found.', $secretID));
-                return new Response(Status::NOT_FOUND, ['content-type' => 'text/plain'], 'Not found or expired');
-            }
-
-            if (!$retrievalRequest->verify_password($hash)) {
+            try {
+                $secret = $service->retrieve($secretID, $verifier);
+            } catch (InvalidVerifierException $e) {
                 $logger->error(sprintf('Secret %s requested with an invalid password.', $secretID));
                 return new Response(Status::UNAUTHORIZED, ['content-type' => 'text/plain'], 'Invalid authorization');
-            }
-
-            $secret = $redisClient->get($secretKey);
-            if ($secret === null) {
+            } catch (SecretNotFoundException $e) {
                 $logger->error(sprintf('Secret %s was requested but was not found.', $secretID));
                 return new Response(Status::NOT_FOUND, ['content-type' => 'text/plain'], 'Not found or expired');
             }
@@ -213,7 +200,8 @@ class ServerRoutes
      */
     public static function retrieveSecretJson(Logger $logger, Client $redisClient): CallableRequestHandler
     {
-        return new CallableRequestHandler(function (Request $request) use ($logger, $redisClient) {
+        $service = new SecretService($redisClient);
+        return new CallableRequestHandler(function (Request $request) use ($logger, $service) {
             $data = yield $request->getBody()->read();
 
             $parsed = json_decode($data, true);
@@ -226,34 +214,19 @@ class ServerRoutes
                 );
             }
 
-            $secretID    = $parsed['id'];
-            $verifier    = $parsed['verifier'];
-            $verifierKey = "json_verifier:{$secretID}";
-            $secretKey   = "json_secret:{$secretID}";
-            $viewsKey    = "json_views:{$secretID}";
-            $expiresKey  = "json_expires:{$secretID}";
+            $secretID = $parsed['id'];
+            $verifier = $parsed['verifier'];
 
-            $hash = $redisClient->get($verifierKey);
-            if ($hash === null) {
-                $logger->error(sprintf('JSON secret %s was requested but verification code was not found.', $secretID));
-                return new Response(
-                    Status::NOT_FOUND,
-                    ['content-type' => 'application/json'],
-                    json_encode(['error' => 'Not found or expired'])
-                );
-            }
-
-            if (!password_verify($verifier, $hash)) {
+            try {
+                $result = $service->retrieveJson($secretID, $verifier);
+            } catch (InvalidVerifierException $e) {
                 $logger->error(sprintf('JSON secret %s requested with an invalid verifier.', $secretID));
                 return new Response(
                     Status::UNAUTHORIZED,
                     ['content-type' => 'application/json'],
                     json_encode(['error' => 'Invalid authorization'])
                 );
-            }
-
-            $encryptedSecret = $redisClient->get($secretKey);
-            if ($encryptedSecret === null) {
+            } catch (SecretNotFoundException $e) {
                 $logger->error(sprintf('JSON secret %s was requested but was not found.', $secretID));
                 return new Response(
                     Status::NOT_FOUND,
@@ -262,24 +235,16 @@ class ServerRoutes
                 );
             }
 
-            $expiresAt  = (int) $redisClient->get($expiresKey);
-            $viewsAfter = (int) $redisClient->decr($viewsKey);
-
-            if ($viewsAfter <= 0) {
-                $redisClient->del($secretKey, $verifierKey, $viewsKey, $expiresKey);
+            if ($result['views_remaining'] === 0) {
                 $logger->info(sprintf('JSON secret %s views exhausted; deleted all keys.', $secretID));
             }
 
-            $logger->info(sprintf('Retrieved JSON secret %s (%d views remaining).', $secretID, max(0, $viewsAfter)));
+            $logger->info(sprintf('Retrieved JSON secret %s (%d views remaining).', $secretID, $result['views_remaining']));
 
             return new Response(
                 Status::OK,
                 ['content-type' => 'application/json'],
-                json_encode([
-                    'encrypted_secret' => $encryptedSecret,
-                    'views_remaining'  => max(0, $viewsAfter),
-                    'expires_at'       => $expiresAt,
-                ])
+                json_encode($result)
             );
         });
     }
