@@ -19,11 +19,12 @@ use Swordfish\Server\ServerRoutes;
 class SecurityHeadersTest extends TestCase
 {
     private const EXPECTED_HEADERS = [
-        'content-security-policy'   => "default-src 'self'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'",
+        'content-security-policy'   => "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
         'x-content-type-options'    => 'nosniff',
         'x-frame-options'           => 'DENY',
-        'referrer-policy'           => 'strict-origin-when-cross-origin',
+        'referrer-policy'           => 'no-referrer',
         'strict-transport-security' => 'max-age=31536000; includeSubDomains',
+        'permissions-policy'        => 'camera=(), microphone=(), geolocation=()',
     ];
 
     private function assertHasSecurityHeaders(Response $response): void

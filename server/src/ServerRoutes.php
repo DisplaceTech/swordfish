@@ -21,11 +21,12 @@ class ServerRoutes
     private static function securityHeaders(): array
     {
         return [
-            'Content-Security-Policy'   => "default-src 'self'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'",
+            'Content-Security-Policy'   => "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
             'X-Content-Type-Options'    => 'nosniff',
             'X-Frame-Options'           => 'DENY',
-            'Referrer-Policy'           => 'strict-origin-when-cross-origin',
+            'Referrer-Policy'           => 'no-referrer',
             'Strict-Transport-Security' => 'max-age=31536000; includeSubDomains',
+            'Permissions-Policy'        => 'camera=(), microphone=(), geolocation=()',
         ];
     }
 
