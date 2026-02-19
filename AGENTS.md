@@ -11,6 +11,13 @@ PHP secret-sharing application using the Amphp async HTTP server framework. Secr
   - `docker-compose.yml` — Production compose (server + redis)
   - `docker-compose.dev.yml` — Dev overrides
   - `Dockerfile` — Multi-stage: composer builder → php:8.4-cli runtime
+  - `static/` — Static assets served by PHP server; Vite build output lands here
+- `frontend/` — React SPA (Vite + React 19 + TailwindCSS 3)
+  - `vite.config.js` — Build output: `../server/static/`, `emptyOutDir: false`
+  - `tailwind.config.js` — `darkMode: 'class'`; `index.html` has `<html class="dark">` for default dark theme
+  - `src/main.jsx` — React entry point; `src/App.jsx` — root component
+  - `src/index.css` — Tailwind directives (`@tailwind base/components/utilities`)
+  - `eslint.config.js` — ESLint flat config with react-hooks and react-refresh
 - `cli/` — PHP CLI tool for interacting with the server
 - `helm/` — Helm chart for Kubernetes deployment
 - `swagger.yml` — OpenAPI 2.0 spec (update when adding routes)
@@ -28,6 +35,14 @@ PHP secret-sharing application using the Amphp async HTTP server framework. Secr
 make server-up        # build image and start containers (requires Docker)
 make server-down      # stop containers
 make server-install   # install Composer deps locally via Docker
+```
+
+### Frontend (from `frontend/`)
+```bash
+npm install           # install dependencies
+npm run dev           # start Vite dev server
+npm run build         # build to server/static/
+npm run lint          # run ESLint
 ```
 
 ## Environment Variables
