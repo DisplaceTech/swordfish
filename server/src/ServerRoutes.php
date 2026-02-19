@@ -120,7 +120,7 @@ class ServerRoutes
                 $secretRequest = CreateRequest::fromString($data);
             } catch (\InvalidArgumentException $e) {
                 $logger->error('Invalid TTL in creation request: ' . $e->getMessage());
-                return new Response(Status::UNPROCESSABLE_ENTITY, ['content-type' => 'application/json'], json_encode(['error' => $e->getMessage()]));
+                return new Response(Status::BAD_REQUEST, ['content-type' => 'application/json'], json_encode(['error' => $e->getMessage()]));
             } catch (\Exception $e) {
                 $logger->error('Unable to decode creation request');
                 return new Response(Status::BAD_REQUEST, ['content-type' => 'text/plain'], 'Bad Request');

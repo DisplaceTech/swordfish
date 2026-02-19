@@ -143,11 +143,9 @@ paths:
         "201":
           description: "Created"
         "400":
-          description: "Bad Request"
+          description: "Bad Request — malformed payload or invalid TTL (must be one of: 3600, 21600, 86400, 259200, 604800)"
         "413":
           description: "Payload Too Large"
-        "422":
-          description: "Unprocessable Entity — TTL out of range"
   /api/retrieve:
     post:
       summary: "Retrieve a secret from the datastore."
