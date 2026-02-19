@@ -86,6 +86,20 @@ class ServerRoutes
     }
 
     /**
+     * Redirect POST /retrieve to POST /api/retrieve with a 307 Temporary Redirect.
+     *
+     * @param Logger $logger
+     * @return CallableRequestHandler
+     */
+    public static function redirectRetrieve(Logger $logger): CallableRequestHandler
+    {
+        return new CallableRequestHandler(function() use ($logger): Response {
+            $logger->info('Redirecting POST /retrieve to POST /api/retrieve');
+            return new Response(Status::TEMPORARY_REDIRECT, ['location' => '/api/retrieve'], '');
+        });
+    }
+
+    /**
      * Process a secret creation request and attempt to create the secret.
      *
      * @param Logger $logger

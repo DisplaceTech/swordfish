@@ -102,6 +102,25 @@ paths:
       responses:
         "307":
           description: "Temporary Redirect to /api/create"
+  /retrieve:
+    post:
+      summary: "Retrieve a secret (deprecated — redirects to /api/retrieve)."
+      tags:
+        - "api"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+        - in: "body"
+          name: "body"
+          description: "JSON authentication request for a stored secret."
+          required: true
+          schema:
+            type: "object"
+      responses:
+        "307":
+          description: "Temporary Redirect to /api/retrieve"
   /api/create:
     post:
       summary: "Create a new secret in the datastore."
