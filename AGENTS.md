@@ -18,9 +18,10 @@ PHP secret-sharing application using the Amphp async HTTP server framework. Secr
   - `src/main.jsx` — Preact entry point using `render()`; `src/App.jsx` — root component with Router
   - `src/App.jsx` — Uses `preact-router`; routes: `/` (Create), `/secret` (Retrieve), `/secret/:id` (Retrieve), `/about` (About); `NavLink` uses `useRouter()` for active state
   - `src/Create.jsx` — Stub page for secret creation (`/`)
-  - `src/Retrieve.jsx` — Stub page for secret retrieval (`/secret`, `/secret/:id`)
+  - `src/Retrieve.jsx` — Full retrieve page: secret ID input (pre-filled from URL `:id` prop), passphrase field, derives verifier via PBKDF2, POSTs to `/api/retrieve`, decrypts client-side, shows plaintext + views remaining + expiry; error states for wrong passphrase / expired secret
   - `src/About.jsx` — How It Works page (`/about`)
   - `src/api.js` — `createSecret()` and `retrieveSecret()` fetch helpers
+  - `src/crypto.js` — AES-256-GCM + PBKDF2 crypto module: `encrypt(secret, passphrase)` → creation string `hex(salt)$hex(verifier)$hex(nonce)hex(ciphertext)`; `decrypt(serverPayload, passphrase)` → plaintext; `deriveVerifier(passphrase)` → hex verifier. PEPPER = `d783eff0523c8fa7336bc768c5950f63`, 10000 PBKDF2 iterations, SHA-256.
   - `src/index.css` — Tailwind directives (`@tailwind base/components/utilities`)
   - `eslint.config.js` — ESLint flat config with react-hooks (Preact-compatible)
 - `cli/` — PHP CLI tool for interacting with the server
