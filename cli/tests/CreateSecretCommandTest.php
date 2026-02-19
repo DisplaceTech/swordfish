@@ -77,23 +77,25 @@ class CreateSecretCommandTest extends TestCase
         $this->assertStringContainsString('Network error', $tester->getDisplay());
     }
 
-    public function testDefaultTtlIs24h(): void
+    private function makeCapturingCommand(): array
     {
-        $capturedData = null;
-        $command = new class($capturedData) extends CreateSecretCommand {
-            public function __construct(private mixed &$captured) {
-                parent::__construct();
-            }
+        $command = new class extends CreateSecretCommand {
+            public ?array $capturedData = null;
             protected function httpPost(string $url, array $data): string|false {
-                $this->captured = $data;
+                $this->capturedData = $data;
                 return json_encode(['id' => 'abc123']);
             }
         };
-        $tester = new CommandTester($command);
+        return [$command, new CommandTester($command)];
+    }
+
+    public function testDefaultTtlIs24h(): void
+    {
+        [$command, $tester] = $this->makeCapturingCommand();
         $status = $tester->execute(['secret' => 'my secret', 'password' => 'pass']);
 
         $this->assertSame(Command::SUCCESS, $status);
-        $this->assertSame(86400, $capturedData['ttl']);
+        $this->assertSame(86400, $command->capturedData['ttl']);
     }
 
     /**
@@ -101,21 +103,11 @@ class CreateSecretCommandTest extends TestCase
      */
     public function testValidTtlValues(string $ttlString, int $expectedSeconds): void
     {
-        $capturedData = null;
-        $command = new class($capturedData) extends CreateSecretCommand {
-            public function __construct(private mixed &$captured) {
-                parent::__construct();
-            }
-            protected function httpPost(string $url, array $data): string|false {
-                $this->captured = $data;
-                return json_encode(['id' => 'abc123']);
-            }
-        };
-        $tester = new CommandTester($command);
+        [$command, $tester] = $this->makeCapturingCommand();
         $status = $tester->execute(['secret' => 'my secret', 'password' => 'pass', '--ttl' => $ttlString]);
 
         $this->assertSame(Command::SUCCESS, $status);
-        $this->assertSame($expectedSeconds, $capturedData['ttl']);
+        $this->assertSame($expectedSeconds, $command->capturedData['ttl']);
     }
 
     public static function validTtlProvider(): array
@@ -137,5 +129,57 @@ class CreateSecretCommandTest extends TestCase
         $this->assertSame(Command::FAILURE, $status);
         $this->assertStringContainsString('Invalid TTL "2h"', $tester->getDisplay());
         $this->assertStringContainsString('1h, 6h, 24h, 3d, 7d', $tester->getDisplay());
+    }
+
+    public function testMaxViewsDefaultIsUnlimited(): void
+    {
+        [$command, $tester] = $this->makeCapturingCommand();
+        $status = $tester->execute(['secret' => 'my secret', 'password' => 'pass']);
+
+        $this->assertSame(Command::SUCCESS, $status);
+        $this->assertSame(0, $command->capturedData['max_views']);
+    }
+
+    public function testMaxViewsUnlimitedExplicit(): void
+    {
+        [$command, $tester] = $this->makeCapturingCommand();
+        $status = $tester->execute(['secret' => 'my secret', 'password' => 'pass', '--max-views' => 'unlimited']);
+
+        $this->assertSame(Command::SUCCESS, $status);
+        $this->assertSame(0, $command->capturedData['max_views']);
+    }
+
+    /**
+     * @dataProvider validMaxViewsProvider
+     */
+    public function testMaxViewsValidValues(int $maxViews): void
+    {
+        [$command, $tester] = $this->makeCapturingCommand();
+        $status = $tester->execute(['secret' => 'my secret', 'password' => 'pass', '--max-views' => (string) $maxViews]);
+
+        $this->assertSame(Command::SUCCESS, $status);
+        $this->assertSame($maxViews, $command->capturedData['max_views']);
+    }
+
+    public static function validMaxViewsProvider(): array
+    {
+        return [[1], [3], [5], [10]];
+    }
+
+    /**
+     * @dataProvider invalidMaxViewsProvider
+     */
+    public function testMaxViewsInvalidValues(string $value): void
+    {
+        $tester = $this->makeCommand(json_encode(['id' => 'abc123']));
+        $status = $tester->execute(['secret' => 'my secret', 'password' => 'pass', '--max-views' => $value]);
+
+        $this->assertSame(Command::FAILURE, $status);
+        $this->assertStringContainsString('--max-views must be one of: 1, 3, 5, 10, or unlimited', $tester->getDisplay());
+    }
+
+    public static function invalidMaxViewsProvider(): array
+    {
+        return [['0'], ['2'], ['7'], ['100'], ['none'], ['all'], ['']];
     }
 }
