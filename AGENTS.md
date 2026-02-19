@@ -12,12 +12,12 @@ PHP secret-sharing application using the Amphp async HTTP server framework. Secr
   - `docker-compose.dev.yml` — Dev overrides
   - `Dockerfile` — Multi-stage: composer builder → php:8.4-cli runtime
   - `static/` — Static assets served by PHP server; Vite build output lands here
-- `frontend/` — React SPA (Vite + React 19 + TailwindCSS 3)
-  - `vite.config.js` — Build output: `../server/static/`, `emptyOutDir: false`
+- `frontend/` — Preact SPA (Vite + Preact 10 + TailwindCSS 3)
+  - `vite.config.js` — Build output: `../server/static/dist/`, `emptyOutDir: true`; uses `@preact/preset-vite`
   - `tailwind.config.js` — `darkMode: 'class'`; `index.html` has `<html class="dark">` for default dark theme
-  - `src/main.jsx` — React entry point; `src/App.jsx` — root component
+  - `src/main.jsx` — Preact entry point using `render()`; `src/App.jsx` — root component
   - `src/index.css` — Tailwind directives (`@tailwind base/components/utilities`)
-  - `eslint.config.js` — ESLint flat config with react-hooks and react-refresh
+  - `eslint.config.js` — ESLint flat config with react-hooks (Preact-compatible)
 - `cli/` — PHP CLI tool for interacting with the server
 - `helm/` — Helm chart for Kubernetes deployment
 - `swagger.yml` — OpenAPI 2.0 spec (update when adding routes)
