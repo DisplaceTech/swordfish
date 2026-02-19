@@ -1,6 +1,7 @@
 import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
+import tseslint from 'typescript-eslint'
 
 export default [
   { ignores: ['../server/static/dist'] },
@@ -22,4 +23,8 @@ export default [
       ...reactHooks.configs.recommended.rules,
     },
   },
+  ...tseslint.configs.recommended.map(config => ({
+    ...config,
+    files: ['**/*.{ts,tsx}'],
+  })),
 ]
