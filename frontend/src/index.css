@@ -1,3 +1,86 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-surface-base text-content-primary font-sans antialiased;
+  }
+
+  *,
+  *::before,
+  *::after {
+    @apply border-border;
+  }
+}
+
+@layer components {
+  /* ── Card ─────────────────────────────────────────────────── */
+  .card {
+    @apply rounded-card border border-border bg-surface-raised p-card shadow-card;
+  }
+
+  .card-accent {
+    @apply rounded-card border border-accent-border bg-accent-surface p-card;
+  }
+
+  /* ── Form labels ──────────────────────────────────────────── */
+  .label {
+    @apply block text-sm font-medium text-content-secondary mb-1.5;
+  }
+
+  /* ── Inputs ───────────────────────────────────────────────── */
+  .input {
+    @apply w-full rounded-lg border border-border bg-surface-overlay px-3.5 py-2.5
+           text-sm text-content-primary placeholder:text-content-muted
+           transition-colors duration-150
+           focus:border-accent focus:outline-none focus:shadow-input-focus
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .textarea {
+    @apply input resize-none leading-relaxed;
+  }
+
+  /* ── Buttons ──────────────────────────────────────────────── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5
+           text-sm font-medium transition-colors duration-150
+           focus:outline-none focus:shadow-input-focus
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-indigo-600 active:bg-indigo-700;
+  }
+
+  .btn-secondary {
+    @apply btn border border-border-subtle bg-surface-raised text-content-primary
+           hover:border-border-subtle hover:bg-surface-overlay;
+  }
+
+  .btn-ghost {
+    @apply btn text-content-secondary hover:bg-surface-overlay hover:text-content-primary;
+  }
+
+  /* ── Form field wrapper ───────────────────────────────────── */
+  .field {
+    @apply flex flex-col gap-1.5;
+  }
+
+  /* ── Helper / hint text ───────────────────────────────────── */
+  .hint {
+    @apply text-xs text-content-muted leading-relaxed;
+  }
+
+  /* ── Status banners ───────────────────────────────────────── */
+  .banner-danger {
+    @apply rounded-card border border-danger-border bg-danger-surface px-4 py-3
+           text-sm text-danger-text;
+  }
+
+  .banner-success {
+    @apply rounded-card border border-success-border bg-success-surface px-4 py-3
+           text-sm text-success-text;
+  }
+}

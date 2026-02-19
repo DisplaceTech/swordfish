@@ -41,11 +41,11 @@ const steps = [
 
 function StepCard({ number, title, description }) {
   return (
-    <div className="flex gap-4 rounded-xl border border-gray-800 bg-gray-900 p-6">
-      <span className="shrink-0 text-2xl font-bold text-indigo-400">{number}</span>
+    <div className="card flex gap-4">
+      <span className="shrink-0 text-2xl font-bold text-accent-muted">{number}</span>
       <div>
-        <h3 className="mb-1 text-lg font-semibold text-gray-100">{title}</h3>
-        <p className="text-sm leading-relaxed text-gray-400">{description}</p>
+        <h3 className="mb-1 text-lg font-semibold text-content-primary">{title}</h3>
+        <p className="text-sm leading-relaxed text-content-secondary">{description}</p>
       </div>
     </div>
   )
@@ -54,8 +54,8 @@ function StepCard({ number, title, description }) {
 export default function About() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="mb-2 text-4xl font-bold text-gray-100">How It Works</h1>
-      <p className="mb-10 text-lg text-gray-400">
+      <h1 className="mb-2 text-4xl font-bold text-content-primary">How It Works</h1>
+      <p className="mb-10 text-lg text-content-secondary">
         Swordfish encrypts your secrets entirely in your browser before they ever touch a server.
         Here is the step-by-step flow.
       </p>
@@ -66,36 +66,36 @@ export default function About() {
         ))}
       </div>
 
-      <div className="mb-12 rounded-xl border border-indigo-700 bg-indigo-950 p-6">
-        <h2 className="mb-4 text-xl font-bold text-indigo-300">Security Guarantees</h2>
-        <ul className="space-y-3 text-sm text-gray-300">
+      <div className="card-accent mb-12">
+        <h2 className="mb-4 text-xl font-bold text-accent-text">Security Guarantees</h2>
+        <ul className="space-y-3 text-sm text-content-secondary">
           <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-indigo-400">✓</span>
+            <span className="mt-0.5 text-accent-muted">✓</span>
             <span>
-              <strong className="text-gray-100">Your secret never leaves your browser in plaintext.</strong>{' '}
+              <strong className="text-content-primary">Your secret never leaves your browser in plaintext.</strong>{' '}
               Encryption happens locally using the Web Crypto API before any network request is made.
             </span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-indigo-400">✓</span>
+            <span className="mt-0.5 text-accent-muted">✓</span>
             <span>
-              <strong className="text-gray-100">Your passphrase never leaves your browser.</strong>{' '}
+              <strong className="text-content-primary">Your passphrase never leaves your browser.</strong>{' '}
               Only a PBKDF2-derived verifier (bcrypt-hashed server-side) is transmitted — the raw
               passphrase is never sent over the wire.
             </span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-indigo-400">✓</span>
+            <span className="mt-0.5 text-accent-muted">✓</span>
             <span>
-              <strong className="text-gray-100">The server cannot read your secrets.</strong>{' '}
+              <strong className="text-content-primary">The server cannot read your secrets.</strong>{' '}
               The server stores only AES-GCM ciphertext. Without the passphrase, the stored data is
               meaningless.
             </span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-indigo-400">✓</span>
+            <span className="mt-0.5 text-accent-muted">✓</span>
             <span>
-              <strong className="text-gray-100">Decryption happens locally on retrieval.</strong>{' '}
+              <strong className="text-content-primary">Decryption happens locally on retrieval.</strong>{' '}
               The encrypted payload is returned to your browser and decrypted there — the plaintext
               is never transmitted back from the server either.
             </span>
@@ -104,14 +104,14 @@ export default function About() {
       </div>
 
       <div className="text-center">
-        <p className="mb-4 text-sm text-gray-500">
+        <p className="mb-4 text-sm text-content-muted">
           Swordfish is open source. Read the code, audit the crypto, or contribute.
         </p>
         <a
           href={GITHUB_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-5 py-2.5 text-sm font-medium text-gray-100 transition-colors hover:border-gray-500 hover:bg-gray-700"
+          className="btn-secondary inline-flex px-5 py-2.5"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

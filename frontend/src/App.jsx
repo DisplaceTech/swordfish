@@ -10,7 +10,7 @@ function NavLink({ href, children }) {
     <Link
       href={href}
       className={`text-sm transition-colors ${
-        active ? 'text-indigo-400' : 'text-gray-400 hover:text-gray-100'
+        active ? 'text-accent-muted' : 'text-content-secondary hover:text-content-primary'
       }`}
     >
       {children}
@@ -20,12 +20,12 @@ function NavLink({ href, children }) {
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
-      <nav className="border-b border-gray-800 bg-gray-900">
+    <div className="min-h-screen bg-surface-base text-content-primary">
+      <nav className="border-b border-border bg-surface-raised">
         <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-6 px-4 py-4">
           <Link
             href="/"
-            className="text-xl font-bold text-gray-100 hover:text-indigo-400 transition-colors"
+            className="text-xl font-bold text-content-primary hover:text-accent-muted transition-colors"
           >
             Swordfish
           </Link>
