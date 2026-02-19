@@ -19,13 +19,16 @@ class CreateSecretCommand extends Command
         '7d'  => 604800,
     ];
 
+    private const ALLOWED_MAX_VIEWS = [1, 3, 5, 10];
+
     protected function configure()
     {
         $this->setDescription('Creates an encrypted secret on the server.')
             ->setHelp('This command allows you to create a secret, fully encrypted on the server.')
             ->addArgument('secret', InputArgument::REQUIRED, 'Plaintext secret to protect.')
             ->addArgument('password', InputArgument::REQUIRED, 'User-friendly password used to protect the secret.')
-            ->addOption('ttl', null, InputOption::VALUE_REQUIRED, 'Time-to-live for the secret (1h, 6h, 24h, 3d, 7d).', '24h');
+            ->addOption('ttl', null, InputOption::VALUE_REQUIRED, 'Time-to-live for the secret (1h, 6h, 24h, 3d, 7d).', '24h')
+            ->addOption('max-views', null, InputOption::VALUE_REQUIRED, 'Maximum number of times the secret can be viewed (1, 3, 5, 10, or unlimited).', 'unlimited');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -43,6 +46,16 @@ class CreateSecretCommand extends Command
         }
         $ttl = self::TTL_MAP[$ttlString];
 
+        $maxViewsRaw = $input->getOption('max-views');
+        if ($maxViewsRaw === 'unlimited') {
+            $maxViews = 0;
+        } elseif (in_array((int) $maxViewsRaw, self::ALLOWED_MAX_VIEWS, true) && (string)(int)$maxViewsRaw === (string)$maxViewsRaw) {
+            $maxViews = (int) $maxViewsRaw;
+        } else {
+            $output->writeln('<error>--max-views must be one of: 1, 3, 5, 10, or unlimited.</error>');
+            return Command::FAILURE;
+        }
+
         $password = $input->getArgument('password');
         $secret = $input->getArgument('secret');
         $salt = random_bytes(16);
@@ -57,7 +70,7 @@ class CreateSecretCommand extends Command
 
         $encryptedSecret = bin2hex($salt) . '$' . $verifier . '$' . $encrypted;
 
-        $response = $this->httpPost("{$serverUrl}/api/create", ['encrypted_secret' => $encryptedSecret, 'ttl' => $ttl]);
+        $response = $this->httpPost("{$serverUrl}/api/create", ['encrypted_secret' => $encryptedSecret, 'ttl' => $ttl, 'max_views' => $maxViews]);
 
         if ($response === false) {
             $output->writeln('<error>Network error: could not reach server</error>');
