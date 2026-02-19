@@ -28,30 +28,22 @@ class RetrieveSecretCommand extends Command
         // Authenticate against the server to get the encrypted secret
         $verifier = hash_pbkdf2('sha256', $password, SWORDFISH_PEPPER, 10000);
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, "{$serverUrl}/api/retrieve");
-        curl_setopt($ch, CURLOPT_USERAGENT, 'Swordfish CLI');
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['id' => $secretId, 'verifier' => $verifier]));
-
-        $response = curl_exec($ch);
+        $response = $this->httpPost("{$serverUrl}/api/retrieve", ['id' => $secretId, 'verifier' => $verifier]);
 
         if ($response === false) {
-            $output->writeln('Network error: ' . curl_error($ch));
+            $output->writeln('Network error: could not reach server');
             return Command::FAILURE;
         }
 
         $parsed = json_decode($response, true);
-        if ($parsed !== null) {
+        if (json_last_error() === JSON_ERROR_NONE) {
             if (isset($parsed['error'])) {
                 $message = $parsed['message'] ?? $parsed['error'];
-                if (str_contains($message, 'Not found') || str_contains($message, 'expired')) {
-                    $output->writeln('Secret is either not found or expired!');
-                } else {
-                    $output->writeln('Invalid password!');
-                }
+                $output->writeln('Server error: ' . $message);
+                return Command::FAILURE;
+            }
+            if (!isset($parsed['encrypted_secret'])) {
+                $output->writeln('Unexpected server response');
                 return Command::FAILURE;
             }
             $encryptedHex = $parsed['encrypted_secret'];
@@ -70,7 +62,12 @@ class RetrieveSecretCommand extends Command
             $encryptedHex = $response;
         }
 
+        if (strlen($encryptedHex) % 2 !== 0 || !ctype_xdigit($encryptedHex)) {
+            $output->writeln('Invalid encrypted secret format received.');
+            return Command::FAILURE;
+        }
         $decoded = hex2bin($encryptedHex);
+
         $salt = substr($decoded, 0, 16);
         $encrypted = substr($decoded, 16);
 
@@ -86,7 +83,6 @@ class RetrieveSecretCommand extends Command
             return Command::FAILURE;
         }
 
-
         $output->writeln([
             'Secret Decrypted!',
             '==============',
@@ -94,5 +90,19 @@ class RetrieveSecretCommand extends Command
         ]);
 
         return Command::SUCCESS;
+    }
+
+    protected function httpPost(string $url, array $data): string|false
+    {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Swordfish CLI');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        $response = curl_exec($ch);
+        curl_close($ch);
+        return $response;
     }
 }

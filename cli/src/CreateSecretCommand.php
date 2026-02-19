@@ -36,25 +36,21 @@ class CreateSecretCommand extends Command
 
         $encryptedSecret = bin2hex($salt) . '$' . $verifier . '$' . $encrypted;
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, "{$serverUrl}/api/create");
-        curl_setopt($ch, CURLOPT_USERAGENT, 'Swordfish CLI');
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['encrypted_secret' => $encryptedSecret]));
-
-        $response = curl_exec($ch);
+        $response = $this->httpPost("{$serverUrl}/api/create", ['encrypted_secret' => $encryptedSecret]);
 
         if ($response === false) {
-            $output->writeln('Network error: ' . curl_error($ch));
+            $output->writeln('Network error: could not reach server');
             return Command::FAILURE;
         }
 
         $parsed = json_decode($response, true);
-        if ($parsed !== null) {
+        if (json_last_error() === JSON_ERROR_NONE) {
             if (isset($parsed['error'])) {
                 $output->writeln('Server error: ' . ($parsed['message'] ?? $parsed['error']));
+                return Command::FAILURE;
+            }
+            if (!isset($parsed['id'])) {
+                $output->writeln('Unexpected server response');
                 return Command::FAILURE;
             }
             $secretId = $parsed['id'];
@@ -73,5 +69,19 @@ class CreateSecretCommand extends Command
         ]);
 
         return Command::SUCCESS;
+    }
+
+    protected function httpPost(string $url, array $data): string|false
+    {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Swordfish CLI');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        $response = curl_exec($ch);
+        curl_close($ch);
+        return $response;
     }
 }
