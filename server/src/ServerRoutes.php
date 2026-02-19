@@ -14,6 +14,22 @@ use Predis\Client;
 class ServerRoutes
 {
     /**
+     * Return the standard security response headers for all responses.
+     *
+     * @return array<string, string>
+     */
+    private static function securityHeaders(): array
+    {
+        return [
+            'Content-Security-Policy'   => "default-src 'self'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'",
+            'X-Content-Type-Options'    => 'nosniff',
+            'X-Frame-Options'           => 'DENY',
+            'Referrer-Policy'           => 'strict-origin-when-cross-origin',
+            'Strict-Transport-Security' => 'max-age=31536000; includeSubDomains',
+        ];
+    }
+
+    /**
      * Create a callback that serves the SPA index.html for the main landing page.
      *
      * @param Logger $logger
@@ -24,7 +40,7 @@ class ServerRoutes
         return new CallableRequestHandler(function() use ($logger): Response {
             $logger->info('Main page load');
             $html = file_get_contents(__DIR__ . '/../static/index.html');
-            return new Response(Status::OK, ['content-type' => 'text/html'], $html);
+            return new Response(Status::OK, array_merge(['content-type' => 'text/html'], self::securityHeaders()), $html);
         });
     }
 
@@ -46,7 +62,7 @@ class ServerRoutes
             }
 
             $html = file_get_contents(__DIR__ . '/../static/index.html');
-            return new Response(Status::OK, ['content-type' => 'text/html'], $html);
+            return new Response(Status::OK, array_merge(['content-type' => 'text/html'], self::securityHeaders()), $html);
         });
     }
 
@@ -65,7 +81,10 @@ class ServerRoutes
             $response = yield $documentRoot->handleRequest($request);
             if ($request->getMethod() === 'GET' && $response->getStatus() === Status::NOT_FOUND) {
                 $logger->info(sprintf('SPA fallback for %s', $request->getUri()->getPath()));
-                return new Response(Status::OK, ['content-type' => 'text/html'], $indexHtml);
+                return new Response(Status::OK, array_merge(['content-type' => 'text/html'], self::securityHeaders()), $indexHtml);
+            }
+            foreach (self::securityHeaders() as $name => $value) {
+                $response->setHeader($name, $value);
             }
             return $response;
         });
@@ -81,7 +100,7 @@ class ServerRoutes
     {
         return new CallableRequestHandler(function() use ($logger): Response {
             $logger->info('Redirecting POST /create to POST /api/create');
-            return new Response(Status::PERMANENT_REDIRECT, ['location' => '/api/create'], '');
+            return new Response(Status::PERMANENT_REDIRECT, array_merge(['location' => '/api/create'], self::securityHeaders()), '');
         });
     }
 
@@ -95,7 +114,7 @@ class ServerRoutes
     {
         return new CallableRequestHandler(function() use ($logger): Response {
             $logger->info('Redirecting POST /retrieve to POST /api/retrieve');
-            return new Response(Status::PERMANENT_REDIRECT, ['location' => '/api/retrieve'], '');
+            return new Response(Status::PERMANENT_REDIRECT, array_merge(['location' => '/api/retrieve'], self::securityHeaders()), '');
         });
     }
 
@@ -119,7 +138,7 @@ class ServerRoutes
                 $logger->error('Message payload too large!');
                 return new Response(
                     Status::PAYLOAD_TOO_LARGE,
-                    ['content-type' => 'application/json'],
+                    array_merge(['content-type' => 'application/json'], self::securityHeaders()),
                     json_encode(['error' => 'Payload Too Large', 'message' => 'Request body exceeds maximum allowed size'])
                 );
             }
@@ -130,14 +149,14 @@ class ServerRoutes
                 $logger->error('Invalid parameter in creation request: ' . $e->getMessage());
                 return new Response(
                     Status::UNPROCESSABLE_ENTITY,
-                    ['content-type' => 'application/json'],
+                    array_merge(['content-type' => 'application/json'], self::securityHeaders()),
                     json_encode(['error' => 'Unprocessable Entity', 'message' => $e->getMessage()])
                 );
             } catch (\Exception $e) {
                 $logger->error('Unable to decode creation request: ' . $e->getMessage());
                 return new Response(
                     Status::BAD_REQUEST,
-                    ['content-type' => 'application/json'],
+                    array_merge(['content-type' => 'application/json'], self::securityHeaders()),
                     json_encode(['error' => 'Bad Request', 'message' => 'Invalid or missing JSON fields'])
                 );
             }
@@ -151,7 +170,7 @@ class ServerRoutes
 
             return new Response(
                 Status::CREATED,
-                ['content-type' => 'application/json'],
+                array_merge(['content-type' => 'application/json'], self::securityHeaders()),
                 json_encode(['id' => $secretID, 'expires_at' => $expiresAt, 'max_views' => $maxViews])
             );
         });
@@ -209,14 +228,14 @@ class ServerRoutes
                 $logger->info('Health check: Redis reachable');
                 return new Response(
                     Status::OK,
-                    ['content-type' => 'application/json'],
+                    array_merge(['content-type' => 'application/json'], self::securityHeaders()),
                     json_encode(['status' => 'ok'])
                 );
             } catch (\Exception $e) {
                 $logger->error('Health check: Redis unreachable - ' . $e->getMessage());
                 return new Response(
                     Status::SERVICE_UNAVAILABLE,
-                    ['content-type' => 'application/json'],
+                    array_merge(['content-type' => 'application/json'], self::securityHeaders()),
                     json_encode(['status' => 'error', 'message' => $e->getMessage()])
                 );
             }
@@ -240,7 +259,7 @@ class ServerRoutes
                 $retrievalRequest = RetrievalRequest::fromString($data);
             } catch (\Exception $e) {
                 $logger->error('Unable to decode retrieval request');
-                return new Response(Status::BAD_REQUEST, ['content-type' => 'text/plain'], 'Bad Request');
+                return new Response(Status::BAD_REQUEST, array_merge(['content-type' => 'text/plain'], self::securityHeaders()), 'Bad Request');
             }
 
             $secretID = $retrievalRequest->ID();
@@ -250,13 +269,13 @@ class ServerRoutes
                 $secret = $service->retrieve($secretID, $verifier);
             } catch (InvalidVerifierException $e) {
                 $logger->error(sprintf('Secret %s requested with an invalid password.', $secretID));
-                return new Response(Status::UNAUTHORIZED, ['content-type' => 'text/plain'], 'Invalid authorization');
+                return new Response(Status::UNAUTHORIZED, array_merge(['content-type' => 'text/plain'], self::securityHeaders()), 'Invalid authorization');
             } catch (SecretNotFoundException $e) {
                 $logger->error(sprintf('Secret %s was requested but was not found.', $secretID));
-                return new Response(Status::NOT_FOUND, ['content-type' => 'text/plain'], 'Not found or expired');
+                return new Response(Status::NOT_FOUND, array_merge(['content-type' => 'text/plain'], self::securityHeaders()), 'Not found or expired');
             }
 
-            return new Response(Status::OK, ['content-type' => 'text/plain'], $secret);
+            return new Response(Status::OK, array_merge(['content-type' => 'text/plain'], self::securityHeaders()), $secret);
         });
     }
 
@@ -282,11 +301,14 @@ class ServerRoutes
         return new CallableRequestHandler(function (Request $request) use ($logger, $service, $rateLimiter, $metrics) {
             $ip          = $request->getClient()->getRemoteAddress()->getHost();
             $rateLimit   = $rateLimiter->isAllowed($ip);
-            $rlHeaders   = [
-                'X-RateLimit-Limit'     => (string) $rateLimit['limit'],
-                'X-RateLimit-Remaining' => (string) $rateLimit['remaining'],
-                'X-RateLimit-Reset'     => (string) $rateLimit['reset'],
-            ];
+            $rlHeaders   = array_merge(
+                [
+                    'X-RateLimit-Limit'     => (string) $rateLimit['limit'],
+                    'X-RateLimit-Remaining' => (string) $rateLimit['remaining'],
+                    'X-RateLimit-Reset'     => (string) $rateLimit['reset'],
+                ],
+                self::securityHeaders()
+            );
 
             if (!$rateLimit['allowed']) {
                 $logger->warning(sprintf('Rate limit exceeded for IP %s on /api/retrieve', $ip));
