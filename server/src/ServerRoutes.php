@@ -107,12 +107,13 @@ class ServerRoutes
      *
      * @param Logger $logger
      * @param Client $redisClient
+     * @param MetricsService|null $metrics
      * @return CallableRequestHandler
      */
-    public static function createSecret(Logger $logger, Client $redisClient): CallableRequestHandler
+    public static function createSecret(Logger $logger, Client $redisClient, ?MetricsService $metrics = null): CallableRequestHandler
     {
         $service = new SecretService($redisClient);
-        return new CallableRequestHandler(function(Request $request) use ($logger, $service) {
+        return new CallableRequestHandler(function(Request $request) use ($logger, $service, $metrics) {
             $data = yield $request->getBody()->read();
             if (strlen($data) > 100 * 1000) {
                 $logger->error('Message payload too large!');
@@ -145,6 +146,8 @@ class ServerRoutes
             $expiresAt = time() + $secretRequest->ttl();
             $maxViews  = $secretRequest->maxViews();
             $logger->info(sprintf('Created JSON secret %s', $secretID));
+
+            $metrics?->recordCreated(strlen($secretRequest->secret()));
 
             return new Response(
                 Status::CREATED,
@@ -232,13 +235,14 @@ class ServerRoutes
      *
      * @param Logger $logger
      * @param Client $redisClient
+     * @param MetricsService|null $metrics
      * @return CallableRequestHandler
      */
-    public static function retrieveSecretJson(Logger $logger, Client $redisClient): CallableRequestHandler
+    public static function retrieveSecretJson(Logger $logger, Client $redisClient, ?MetricsService $metrics = null): CallableRequestHandler
     {
         $service     = new SecretService($redisClient);
         $rateLimiter = new RateLimiter($redisClient);
-        return new CallableRequestHandler(function (Request $request) use ($logger, $service, $rateLimiter) {
+        return new CallableRequestHandler(function (Request $request) use ($logger, $service, $rateLimiter, $metrics) {
             $ip          = $request->getClient()->getRemoteAddress()->getHost();
             $rateLimit   = $rateLimiter->isAllowed($ip);
             $rlHeaders   = [
@@ -294,6 +298,8 @@ class ServerRoutes
             }
 
             $logger->info(sprintf('Retrieved JSON secret %s (%d views remaining).', $secretID, $result['views_remaining']));
+
+            $metrics?->recordRetrieved(strlen($result['encrypted_secret']));
 
             return new Response(
                 Status::OK,
