@@ -12,10 +12,15 @@ PHP secret-sharing application using the Amphp async HTTP server framework. Secr
   - `docker-compose.dev.yml` — Dev overrides
   - `Dockerfile` — Multi-stage: composer builder → php:8.4-cli runtime
   - `static/` — Static assets served by PHP server; Vite build output lands here
-- `frontend/` — Preact SPA (Vite + Preact 10 + TailwindCSS 3)
+- `frontend/` — Preact SPA (Vite + Preact 10 + TailwindCSS 3 + preact-router)
   - `vite.config.js` — Build output: `../server/static/dist/`, `emptyOutDir: true`; uses `@preact/preset-vite`
   - `tailwind.config.js` — `darkMode: 'class'`; `index.html` has `<html class="dark">` for default dark theme
-  - `src/main.jsx` — Preact entry point using `render()`; `src/App.jsx` — root component
+  - `src/main.jsx` — Preact entry point using `render()`; `src/App.jsx` — root component with Router
+  - `src/App.jsx` — Uses `preact-router`; routes: `/` (Create), `/secret` (Retrieve), `/secret/:id` (Retrieve), `/about` (About); `NavLink` uses `useRouter()` for active state
+  - `src/Create.jsx` — Stub page for secret creation (`/`)
+  - `src/Retrieve.jsx` — Stub page for secret retrieval (`/secret`, `/secret/:id`)
+  - `src/About.jsx` — How It Works page (`/about`)
+  - `src/api.js` — `createSecret()` and `retrieveSecret()` fetch helpers
   - `src/index.css` — Tailwind directives (`@tailwind base/components/utilities`)
   - `eslint.config.js` — ESLint flat config with react-hooks (Preact-compatible)
 - `cli/` — PHP CLI tool for interacting with the server
@@ -56,5 +61,7 @@ npm run lint          # run ESLint
 - GitHub Actions workflow at `.github/workflows/build.yml` builds and pushes the Docker image to GHCR on pushes to `main` or PRs touching `server/**`
 - Git remotes: `origin` → GitHub (`DisplaceTech/swordfish`), `fj` → internal Forgejo instance
 
-## No Formal Test Suite
-The project has no phpunit or phpcs configuration. Linting/testing is done by building and running the Docker image.
+## Testing
+- **PHP**: No phpunit/phpcs configuration; linting/testing done by building and running the Docker image
+- **Frontend**: Vitest test suite at `frontend/src/__tests__/`; run with `npm test` from `frontend/`; also run `npm run lint` (ESLint) and `npm run build` (Vite) to verify
+- **`server/static/dist/`** is committed to the repo — always rebuild with `npm run build` after frontend changes
