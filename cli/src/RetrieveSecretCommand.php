@@ -4,6 +4,8 @@ namespace Swordfish\CLI;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class RetrieveSecretCommand extends Command
@@ -15,12 +17,14 @@ class RetrieveSecretCommand extends Command
         $this->setDescription('Retrieves an encrypted secret from the server.')
             ->setHelp('This command allows you to retrieve a secret from the server and decrypt it locally.')
             ->addArgument('secret-id', InputArgument::REQUIRED, 'ID of the secret to retrieve.')
-            ->addArgument('password', InputArgument::REQUIRED, 'User-friendly password used to protect the secret.');
+            ->addArgument('password', InputArgument::REQUIRED, 'User-friendly password used to protect the secret.')
+            ->addOption('json', null, InputOption::VALUE_NONE, 'Output as machine-readable JSON.');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $serverUrl = getenv('SWORDFISH_URL') ?: 'https://swordfish.displace.tech';
+        $jsonMode = $input->getOption('json');
 
         $password = $input->getArgument('password');
         $secretId = $input->getArgument('secret-id');
@@ -31,7 +35,7 @@ class RetrieveSecretCommand extends Command
         $response = $this->httpPost("{$serverUrl}/api/retrieve", ['id' => $secretId, 'verifier' => $verifier]);
 
         if ($response === false) {
-            $output->writeln('<error>Network error: could not reach server</error>');
+            $this->writeError($output, $jsonMode, 'Network error: could not reach server');
             return Command::FAILURE;
         }
 
@@ -39,28 +43,32 @@ class RetrieveSecretCommand extends Command
         if (json_last_error() === JSON_ERROR_NONE) {
             if (isset($parsed['error'])) {
                 $message = $parsed['message'] ?? $parsed['error'];
-                $friendlyMessage = match(true) {
-                    str_contains($message, 'not found') || str_contains($message, 'expired') => 'Secret not found or has expired.',
-                    str_contains($message, 'authorization') => 'Wrong password: the password you entered is incorrect.',
-                    default => 'Server error: ' . $message,
-                };
-                $output->writeln('<error>' . $friendlyMessage . '</error>');
+                if ($jsonMode) {
+                    $this->writeError($output, true, 'Server error: ' . $message);
+                } else {
+                    $friendlyMessage = match(true) {
+                        str_contains($message, 'not found') || str_contains($message, 'expired') => 'Secret not found or has expired.',
+                        str_contains($message, 'authorization') => 'Wrong password: the password you entered is incorrect.',
+                        default => 'Server error: ' . $message,
+                    };
+                    $this->writeError($output, false, $friendlyMessage);
+                }
                 return Command::FAILURE;
             }
             if (!isset($parsed['encrypted_secret'])) {
-                $output->writeln('<error>Unexpected server response</error>');
+                $this->writeError($output, $jsonMode, 'Unexpected server response');
                 return Command::FAILURE;
             }
             $encryptedHex = $parsed['encrypted_secret'];
         } else {
             // v1 fallback: plain-text response is the hex-encoded encrypted secret
             if ($response === "Not found or expired") {
-                $output->writeln('<error>Secret not found or has expired.</error>');
+                $this->writeError($output, $jsonMode, 'Secret not found or has expired.');
                 return Command::FAILURE;
             }
 
             if ($response === "Invalid authorization") {
-                $output->writeln('<error>Wrong password: the password you entered is incorrect.</error>');
+                $this->writeError($output, $jsonMode, 'Wrong password: the password you entered is incorrect.');
                 return Command::FAILURE;
             }
 
@@ -68,7 +76,7 @@ class RetrieveSecretCommand extends Command
         }
 
         if (strlen($encryptedHex) % 2 !== 0 || !ctype_xdigit($encryptedHex)) {
-            $output->writeln('<error>Invalid encrypted secret format received.</error>');
+            $this->writeError($output, $jsonMode, 'Invalid encrypted secret format received.');
             return Command::FAILURE;
         }
         $decoded = hex2bin($encryptedHex);
@@ -84,17 +92,30 @@ class RetrieveSecretCommand extends Command
         $decrypted = sodium_crypto_aead_aes256gcm_decrypt($ciphertext, '', $nonce, $key);
 
         if ($decrypted === false) {
-            $output->writeln('<error>Unable to decrypt secret. Check your password and try again.</error>');
+            $this->writeError($output, $jsonMode, 'Unable to decrypt secret. Check your password and try again.');
             return Command::FAILURE;
         }
 
-        $output->writeln([
-            '<info>Secret Decrypted!</info>',
-            '<info>==============</info>',
-            $decrypted
-        ]);
+        if ($jsonMode) {
+            $output->writeln(json_encode(['secret' => $decrypted]));
+        } else {
+            $output->writeln([
+                '<info>Secret Decrypted!</info>',
+                '<info>==============</info>',
+                $decrypted
+            ]);
+        }
 
         return Command::SUCCESS;
+    }
+
+    private function writeError(OutputInterface $output, bool $jsonMode, string $message): void
+    {
+        if ($jsonMode && $output instanceof ConsoleOutputInterface) {
+            $output->getErrorOutput()->writeln($message);
+        } else {
+            $output->writeln('<error>' . $message . '</error>');
+        }
     }
 
     protected function httpPost(string $url, array $data): string|false
