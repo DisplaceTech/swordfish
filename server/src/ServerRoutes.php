@@ -91,6 +91,35 @@ class ServerRoutes
     }
 
     /**
+     * Check Redis connectivity and return service health status.
+     *
+     * @param Logger $logger
+     * @param Client $redisClient
+     * @return CallableRequestHandler
+     */
+    public static function healthCheck(Logger $logger, Client $redisClient): CallableRequestHandler
+    {
+        return new CallableRequestHandler(function() use ($logger, $redisClient): Response {
+            try {
+                $redisClient->ping();
+                $logger->info('Health check: Redis reachable');
+                return new Response(
+                    Status::OK,
+                    ['content-type' => 'application/json'],
+                    json_encode(['status' => 'ok'])
+                );
+            } catch (\Exception $e) {
+                $logger->error('Health check: Redis unreachable - ' . $e->getMessage());
+                return new Response(
+                    Status::SERVICE_UNAVAILABLE,
+                    ['content-type' => 'application/json'],
+                    json_encode(['status' => 'error', 'detail' => 'redis unreachable'])
+                );
+            }
+        });
+    }
+
+    /**
      * Handle API requests to retrieve a secret.
      *
      * @param Logger $logger

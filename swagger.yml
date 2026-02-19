@@ -55,6 +55,34 @@ paths:
         "200":
           description: "OK"
 
+  /health:
+    get:
+      summary: "Check service health including Redis connectivity."
+      tags:
+        - "api"
+      produces:
+        - "application/json"
+      responses:
+        "200":
+          description: "Service is healthy"
+          schema:
+            type: "object"
+            properties:
+              status:
+                type: "string"
+                example: "ok"
+        "503":
+          description: "Service unavailable — Redis unreachable"
+          schema:
+            type: "object"
+            properties:
+              status:
+                type: "string"
+                example: "error"
+              detail:
+                type: "string"
+                example: "redis unreachable"
+
   /api/create:
     post:
       summary: "Create a new secret in the datastore."
