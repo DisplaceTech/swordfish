@@ -17,7 +17,7 @@ class SecretServiceTest extends TestCase
     {
         return $this->getMockBuilder(RedisClient::class)
             ->disableOriginalConstructor()
-            ->addMethods(['setex', 'get', 'decr', 'del'])
+            ->addMethods(['setex', 'get', 'eval'])
             ->getMock();
     }
 
@@ -194,6 +194,9 @@ class SecretServiceTest extends TestCase
                 return null;
             });
 
+        // Lua script returns null secret (key missing or views exhausted)
+        $redis->method('eval')->willReturn([null, null, null]);
+
         $service = new SecretService($redis);
 
         $this->expectException(SecretNotFoundException::class);
@@ -211,23 +214,13 @@ class SecretServiceTest extends TestCase
                 if (str_starts_with($key, 'json_verifier:')) {
                     return $hash;
                 }
-                if (str_starts_with($key, 'json_secret:')) {
-                    return 'encrypted-payload';
-                }
-                if (str_starts_with($key, 'json_expires:')) {
-                    return '9999999999';
-                }
-                if (str_starts_with($key, 'json_views:')) {
-                    return '3'; // limited: 3 views remaining before this retrieval
-                }
                 return null;
             });
 
+        // Lua script atomically decrements and returns [secret, expires, views_remaining]
         $redis->expects($this->once())
-            ->method('decr')
-            ->willReturn(2); // 2 views remaining after decrement
-
-        $redis->expects($this->never())->method('del');
+            ->method('eval')
+            ->willReturn(['encrypted-payload', '9999999999', '2']);
 
         $service = new SecretService($redis);
         $result  = $service->retrieveJson('abc123def456', $verifier);
@@ -248,21 +241,13 @@ class SecretServiceTest extends TestCase
                 if (str_starts_with($key, 'json_verifier:')) {
                     return $hash;
                 }
-                if (str_starts_with($key, 'json_secret:')) {
-                    return 'encrypted-payload';
-                }
-                if (str_starts_with($key, 'json_expires:')) {
-                    return '9999999999';
-                }
-                if (str_starts_with($key, 'json_views:')) {
-                    return '1'; // last view
-                }
                 return null;
             });
 
-        $redis->method('decr')->willReturn(0);
-
-        $redis->expects($this->once())->method('del');
+        // Lua script returns views_remaining=0 and handles deletion internally
+        $redis->expects($this->once())
+            ->method('eval')
+            ->willReturn(['encrypted-payload', '9999999999', '0']);
 
         $service = new SecretService($redis);
         $result  = $service->retrieveJson('abc123def456', $verifier);
@@ -281,17 +266,13 @@ class SecretServiceTest extends TestCase
                 if (str_starts_with($key, 'json_verifier:')) {
                     return $hash;
                 }
-                if (str_starts_with($key, 'json_secret:')) {
-                    return 'encrypted-payload';
-                }
-                if (str_starts_with($key, 'json_expires:')) {
-                    return '9999999999';
-                }
-                return null; // no views key → unlimited
+                return null;
             });
 
-        $redis->expects($this->never())->method('decr');
-        $redis->expects($this->never())->method('del');
+        // Lua script returns null for views_remaining when no views key exists (unlimited)
+        $redis->expects($this->once())
+            ->method('eval')
+            ->willReturn(['encrypted-payload', '9999999999', null]);
 
         $service = new SecretService($redis);
         $result  = $service->retrieveJson('abc123def456', $verifier);
@@ -299,6 +280,31 @@ class SecretServiceTest extends TestCase
         $this->assertSame('encrypted-payload', $result['encrypted_secret']);
         $this->assertNull($result['views_remaining']);
         $this->assertSame(9999999999, $result['expires_at']);
+    }
+
+    public function testRetrieveJsonThrowsSecretNotFoundWhenViewsAlreadyExhausted(): void
+    {
+        $redis    = $this->makeRedisMock();
+        $verifier = 'my-verifier';
+        $hash     = password_hash($verifier, PASSWORD_DEFAULT);
+
+        $redis->method('get')
+            ->willReturnCallback(function (string $key) use ($hash) {
+                if (str_starts_with($key, 'json_verifier:')) {
+                    return $hash;
+                }
+                return null;
+            });
+
+        // Lua script returns null secret when views counter went negative (race condition)
+        $redis->expects($this->once())
+            ->method('eval')
+            ->willReturn([null, null, null]);
+
+        $service = new SecretService($redis);
+
+        $this->expectException(SecretNotFoundException::class);
+        $service->retrieveJson('abc123def456', $verifier);
     }
 
     // -------------------------------------------------------------------------
