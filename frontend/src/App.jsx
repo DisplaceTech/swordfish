@@ -1,7 +1,21 @@
+import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import Layout from './components/Layout.jsx'
+import CreatePage from './pages/CreatePage.jsx'
+import RetrievePage from './pages/RetrievePage.jsx'
+import AboutPage from './pages/AboutPage.jsx'
+
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <Layout />,
+    children: [
+      { index: true, element: <CreatePage /> },
+      { path: 'secret/:secretId?', element: <RetrievePage /> },
+      { path: 'about', element: <AboutPage /> },
+    ],
+  },
+])
+
 export default function App() {
-  return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex items-center justify-center">
-      <h1 className="text-4xl font-bold">Swordfish</h1>
-    </div>
-  )
+  return <RouterProvider router={router} />
 }
