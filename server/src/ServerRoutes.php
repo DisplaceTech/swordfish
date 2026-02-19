@@ -55,6 +55,20 @@ class ServerRoutes
     }
 
     /**
+     * Redirect POST /create to POST /api/create with a 307 Temporary Redirect.
+     *
+     * @param Logger $logger
+     * @return CallableRequestHandler
+     */
+    public static function redirectCreate(Logger $logger): CallableRequestHandler
+    {
+        return new CallableRequestHandler(function() use ($logger): Response {
+            $logger->info('Redirecting POST /create to POST /api/create');
+            return new Response(Status::TEMPORARY_REDIRECT, ['location' => '/api/create'], '');
+        });
+    }
+
+    /**
      * Process a secret creation request and attempt to create the secret.
      *
      * @param Logger $logger
