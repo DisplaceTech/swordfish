@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { encrypt, decrypt } from '../crypto'
+import { encrypt, decrypt, getVerifier } from '../crypto'
 
 describe('crypto', () => {
   it('encrypt produces a valid v1 wire-format creation string', async () => {
@@ -67,5 +67,33 @@ describe('crypto', () => {
 
     // Same passphrase → same verifier (PBKDF2 over fixed pepper)
     expect(verifier1).toBe(verifier2)
+  })
+})
+
+describe('getVerifier', () => {
+  it('returns a 64-char lowercase hex string', async () => {
+    const verifier = await getVerifier('test-passphrase')
+    expect(verifier).toHaveLength(64)
+    expect(verifier).toMatch(/^[0-9a-f]+$/)
+  })
+
+  it('is deterministic for the same passphrase', async () => {
+    const v1 = await getVerifier('my-passphrase')
+    const v2 = await getVerifier('my-passphrase')
+    expect(v1).toBe(v2)
+  })
+
+  it('differs for different passphrases', async () => {
+    const v1 = await getVerifier('passphrase-one')
+    const v2 = await getVerifier('passphrase-two')
+    expect(v1).not.toBe(v2)
+  })
+
+  it('matches the verifier embedded in the encrypt output', async () => {
+    const passphrase = 'shared-passphrase'
+    const creationString = await encrypt('any plaintext', passphrase)
+    const embeddedVerifier = creationString.split('$')[1]
+    const standaloneVerifier = await getVerifier(passphrase)
+    expect(standaloneVerifier).toBe(embeddedVerifier)
   })
 })
