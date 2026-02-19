@@ -9,7 +9,7 @@ function NavLink({ href, children }) {
   return (
     <Link
       href={href}
-      className={`text-sm transition-colors ${
+      className={`py-3 text-sm transition-colors ${
         active ? 'text-indigo-400' : 'text-gray-400 hover:text-gray-100'
       }`}
     >

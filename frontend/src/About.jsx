@@ -54,7 +54,7 @@ function StepCard({ number, title, description }) {
 export default function About() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="mb-2 text-4xl font-bold text-gray-100">How It Works</h1>
+      <h1 className="mb-2 text-3xl font-bold text-gray-100 sm:text-4xl">How It Works</h1>
       <p className="mb-10 text-lg text-gray-400">
         Swordfish encrypts your secrets entirely in your browser before they ever touch a server.
         Here is the step-by-step flow.
@@ -111,7 +111,7 @@ export default function About() {
           href={GITHUB_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-5 py-2.5 text-sm font-medium text-gray-100 transition-colors hover:border-gray-500 hover:bg-gray-700"
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-5 py-3 text-sm font-medium text-gray-100 transition-colors hover:border-gray-500 hover:bg-gray-700"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

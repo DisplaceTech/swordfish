@@ -81,7 +81,7 @@ export default function Create() {
   if (result) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-12">
-        <h1 className="mb-2 text-4xl font-bold text-gray-100">Secret Created</h1>
+        <h1 className="mb-2 text-3xl font-bold text-gray-100 sm:text-4xl">Secret Created</h1>
         <p className="mb-8 text-lg text-gray-400">
           Your secret has been encrypted and stored. Share the link below — the passphrase
           is embedded in the URL fragment and never sent to the server.
@@ -102,7 +102,7 @@ export default function Create() {
             <button
               type="button"
               onClick={handleCopy}
-              className={`shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              className={`shrink-0 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
                 copied
                   ? 'bg-green-700 text-green-100'
                   : 'bg-indigo-600 text-white hover:bg-indigo-500'
@@ -119,7 +119,7 @@ export default function Create() {
         <button
           type="button"
           onClick={handleReset}
-          className="mt-6 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+          className="mt-6 inline-block py-3 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
         >
           Create another secret
         </button>
@@ -129,7 +129,7 @@ export default function Create() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="mb-2 text-4xl font-bold text-gray-100">Create a Secret</h1>
+      <h1 className="mb-2 text-3xl font-bold text-gray-100 sm:text-4xl">Create a Secret</h1>
       <p className="mb-8 text-lg text-gray-400">
         Your secret is encrypted in your browser before it ever reaches the server.
         Share the link — only someone with the passphrase can read it.
@@ -171,7 +171,7 @@ export default function Create() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="ttl" className="mb-1.5 block text-sm font-medium text-gray-300">
                 Expires after
@@ -216,7 +216,7 @@ export default function Create() {
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? (
               <>

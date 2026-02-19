@@ -62,7 +62,7 @@ export default function Retrieve({ id: urlId }) {
   if (status === 'success') {
     return (
       <main className="mx-auto max-w-3xl px-4 py-12">
-        <h1 className="mb-6 text-4xl font-bold text-gray-100">Your Secret</h1>
+        <h1 className="mb-6 text-3xl font-bold text-gray-100 sm:text-4xl">Your Secret</h1>
 
         <div className="mb-6 rounded-lg border border-gray-700 bg-gray-900 p-6">
           <p className="whitespace-pre-wrap break-words font-mono text-gray-100">{plaintext}</p>
@@ -91,7 +91,7 @@ export default function Retrieve({ id: urlId }) {
             setPassphrase('')
             setSecretId(urlId ?? '')
           }}
-          className="mt-8 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+          className="mt-8 inline-block py-3 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
         >
           ← Retrieve another secret
         </button>
@@ -101,7 +101,7 @@ export default function Retrieve({ id: urlId }) {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="mb-2 text-4xl font-bold text-gray-100">Retrieve a Secret</h1>
+      <h1 className="mb-2 text-3xl font-bold text-gray-100 sm:text-4xl">Retrieve a Secret</h1>
       <p className="mb-8 text-lg text-gray-400">
         Enter your secret ID and passphrase to decrypt and view the secret.
       </p>
@@ -146,7 +146,7 @@ export default function Retrieve({ id: urlId }) {
         <button
           type="submit"
           disabled={status === 'loading'}
-          className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {status === 'loading' ? 'Decrypting…' : 'Retrieve Secret'}
         </button>
