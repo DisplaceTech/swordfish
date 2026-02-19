@@ -72,6 +72,9 @@ class ServerRoutes
 
             try {
                 $secretRequest = CreateRequest::fromString($data);
+            } catch (\InvalidArgumentException $e) {
+                $logger->error('Invalid TTL in creation request: ' . $e->getMessage());
+                return new Response(Status::UNPROCESSABLE_ENTITY, ['content-type' => 'application/json'], json_encode(['error' => $e->getMessage()]));
             } catch (\Exception $e) {
                 $logger->error('Unable to decode creation request');
                 return new Response(Status::BAD_REQUEST, ['content-type' => 'text/plain'], 'Bad Request');
@@ -81,8 +84,9 @@ class ServerRoutes
             $secretKey = "secret:{$secretID}";
             $verifierKey = "verifier:{$secretID}";
 
-            $redisClient->setex($verifierKey, 24 * 60 * 60, $secretRequest->verifier());
-            $redisClient->setex($secretKey, (24 * 60 * 60) + 30, $secretRequest->secret());
+            $ttl = $secretRequest->ttl();
+            $redisClient->setex($verifierKey, $ttl, $secretRequest->verifier());
+            $redisClient->setex($secretKey, $ttl + 30, $secretRequest->secret());
 
             $logger->info(sprintf('Created secret %s', $secretID));
 
