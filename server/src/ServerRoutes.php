@@ -239,12 +239,19 @@ class ServerRoutes
         $service     = new SecretService($redisClient);
         $rateLimiter = new RateLimiter($redisClient);
         return new CallableRequestHandler(function (Request $request) use ($logger, $service, $rateLimiter) {
-            $ip = $request->getClient()->getRemoteAddress()->getHost();
-            if (!$rateLimiter->isAllowed($ip)) {
+            $ip          = $request->getClient()->getRemoteAddress()->getHost();
+            $rateLimit   = $rateLimiter->isAllowed($ip);
+            $rlHeaders   = [
+                'X-RateLimit-Limit'     => (string) $rateLimit['limit'],
+                'X-RateLimit-Remaining' => (string) $rateLimit['remaining'],
+                'X-RateLimit-Reset'     => (string) $rateLimit['reset'],
+            ];
+
+            if (!$rateLimit['allowed']) {
                 $logger->warning(sprintf('Rate limit exceeded for IP %s on /api/retrieve', $ip));
                 return new Response(
                     Status::TOO_MANY_REQUESTS,
-                    ['content-type' => 'application/json'],
+                    array_merge(['content-type' => 'application/json'], $rlHeaders),
                     json_encode(['error' => 'Too Many Requests', 'message' => 'Rate limit exceeded; try again later'])
                 );
             }
@@ -256,7 +263,7 @@ class ServerRoutes
                 $logger->error('Unable to decode JSON retrieval request');
                 return new Response(
                     Status::BAD_REQUEST,
-                    ['content-type' => 'application/json'],
+                    array_merge(['content-type' => 'application/json'], $rlHeaders),
                     json_encode(['error' => 'Bad Request', 'message' => 'Invalid or missing JSON fields'])
                 );
             }
@@ -270,14 +277,14 @@ class ServerRoutes
                 $logger->error(sprintf('JSON secret %s requested with an invalid verifier.', $secretID));
                 return new Response(
                     Status::UNAUTHORIZED,
-                    ['content-type' => 'application/json'],
+                    array_merge(['content-type' => 'application/json'], $rlHeaders),
                     json_encode(['error' => 'Unauthorized', 'message' => 'Invalid authorization'])
                 );
             } catch (SecretNotFoundException $e) {
                 $logger->error(sprintf('JSON secret %s was requested but was not found.', $secretID));
                 return new Response(
                     Status::NOT_FOUND,
-                    ['content-type' => 'application/json'],
+                    array_merge(['content-type' => 'application/json'], $rlHeaders),
                     json_encode(['error' => 'Not Found', 'message' => 'Not found or expired'])
                 );
             }
@@ -290,7 +297,7 @@ class ServerRoutes
 
             return new Response(
                 Status::OK,
-                ['content-type' => 'application/json'],
+                array_merge(['content-type' => 'application/json'], $rlHeaders),
                 json_encode($result)
             );
         });

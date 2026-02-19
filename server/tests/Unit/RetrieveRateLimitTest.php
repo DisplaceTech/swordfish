@@ -37,7 +37,7 @@ class RetrieveRateLimitTest extends TestCase
     public function testReturns429WhenRateLimitExceeded(): void
     {
         $logger  = new Logger('test');
-        $redis   = $this->makeRedisMock(31);
+        $redis   = $this->makeRedisMock(11);
 
         $handler  = ServerRoutes::retrieveSecretJson($logger, $redis);
         $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest()));
@@ -45,21 +45,26 @@ class RetrieveRateLimitTest extends TestCase
         $this->assertSame(Status::TOO_MANY_REQUESTS, $response->getStatus());
         $this->assertSame('application/json', $response->getHeader('content-type'));
 
-        $body = \Amp\Promise\wait($response->getBody()->read());
+        $body    = \Amp\Promise\wait($response->getBody()->read());
         $decoded = json_decode($body, true);
         $this->assertSame('Too Many Requests', $decoded['error']);
         $this->assertArrayHasKey('message', $decoded);
+
+        $this->assertSame('10', $response->getHeader('x-ratelimit-limit'));
+        $this->assertSame('0', $response->getHeader('x-ratelimit-remaining'));
+        $this->assertNotNull($response->getHeader('x-ratelimit-reset'));
     }
 
     public function testReturns429AtLimitPlusOne(): void
     {
         $logger  = new Logger('test');
-        $redis   = $this->makeRedisMock(31);
+        $redis   = $this->makeRedisMock(11);
 
         $handler  = ServerRoutes::retrieveSecretJson($logger, $redis);
         $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest('10.0.0.1')));
 
         $this->assertSame(Status::TOO_MANY_REQUESTS, $response->getStatus());
+        $this->assertSame('10', $response->getHeader('x-ratelimit-limit'));
     }
 
     public function testDoesNotReturn429WhenUnderLimit(): void
@@ -76,5 +81,8 @@ class RetrieveRateLimitTest extends TestCase
         $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest()));
 
         $this->assertNotSame(Status::TOO_MANY_REQUESTS, $response->getStatus());
+        $this->assertSame('10', $response->getHeader('x-ratelimit-limit'));
+        $this->assertSame('9', $response->getHeader('x-ratelimit-remaining'));
+        $this->assertNotNull($response->getHeader('x-ratelimit-reset'));
     }
 }
