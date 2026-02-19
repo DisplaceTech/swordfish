@@ -32,8 +32,8 @@ WORKDIR /var/www/html
 # Copy application files
 COPY server/ /var/www/html/
 COPY --from=composer-builder /build/vendor/ /var/www/html/vendor/
-# Overwrite any pre-committed dist/ with the freshly built SPA assets
-COPY --from=spa-builder /build/server/static/dist/ /var/www/html/static/dist/
+# Overlay the freshly built SPA assets (index.html + assets/) onto the static root
+COPY --from=spa-builder /build/server/static/dist/ /var/www/html/static/
 
 # Fix permissions
 RUN chown -R www-data:www-data /var/www/html \
