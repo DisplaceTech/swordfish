@@ -312,6 +312,113 @@ class SecretServiceTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
+    // createJson() + retrieveJson() — wire-format verifier round trip
+    // -------------------------------------------------------------------------
+
+    /**
+     * Simulate the full frontend flow: a wire-format encrypted_secret string
+     * is parsed by CreateRequest::fromJson(), stored via createJson(), then
+     * retrieved via retrieveJson() using the same hex verifier the frontend
+     * would send. This catches any encoding mismatch between the create and
+     * retrieve paths (e.g. hex2bin applied on one side but not the other).
+     */
+    public function testJsonVerifierRoundTripMatchesWireFormat(): void
+    {
+        $saltHex     = bin2hex(random_bytes(16));
+        $verifierHex = bin2hex(random_bytes(32));
+        $payloadHex  = bin2hex('nonce-and-ciphertext-here');
+
+        $wireString  = "{$saltHex}\${$verifierHex}\${$payloadHex}";
+        $jsonBody    = json_encode([
+            'encrypted_secret' => $wireString,
+            'ttl'              => 3600,
+            'max_views'        => 1,
+        ]);
+
+        $request = CreateRequest::fromJson($jsonBody);
+
+        $storedHash = null;
+        $redis = $this->makeRedisMock();
+        $redis->expects($this->exactly(4))
+            ->method('setex')
+            ->willReturnCallback(function (string $key, int $ttl, string $value) use (&$storedHash) {
+                if (str_starts_with($key, 'json_verifier:')) {
+                    $storedHash = $value;
+                }
+            });
+
+        $service  = new SecretService($redis);
+        $secretID = $service->createJson($request);
+
+        $this->assertNotNull($storedHash, 'Verifier hash must be stored in Redis');
+
+        $redis2 = $this->makeRedisMock();
+        $redis2->method('get')
+            ->willReturnCallback(function (string $key) use ($storedHash) {
+                if (str_starts_with($key, 'json_verifier:')) {
+                    return $storedHash;
+                }
+                return null;
+            });
+        $redis2->method('eval')
+            ->willReturn(['encrypted-payload', '9999999999', '0']);
+
+        $service2 = new SecretService($redis2);
+        $result   = $service2->retrieveJson($secretID, $verifierHex);
+
+        $this->assertSame('encrypted-payload', $result['encrypted_secret']);
+    }
+
+    /**
+     * Same wire-format round trip, but with a wrong verifier hex string.
+     * Ensures the bcrypt comparison correctly rejects mismatched verifiers.
+     */
+    public function testJsonVerifierRoundTripRejectsWrongHexVerifier(): void
+    {
+        $saltHex        = bin2hex(random_bytes(16));
+        $verifierHex    = bin2hex(random_bytes(32));
+        $payloadHex     = bin2hex('nonce-and-ciphertext-here');
+
+        $wireString = "{$saltHex}\${$verifierHex}\${$payloadHex}";
+        $jsonBody   = json_encode([
+            'encrypted_secret' => $wireString,
+            'ttl'              => 3600,
+            'max_views'        => 0,
+        ]);
+
+        $request = CreateRequest::fromJson($jsonBody);
+
+        $storedHash = null;
+        $redis = $this->makeRedisMock();
+        $redis->expects($this->exactly(3))
+            ->method('setex')
+            ->willReturnCallback(function (string $key, int $ttl, string $value) use (&$storedHash) {
+                if (str_starts_with($key, 'json_verifier:')) {
+                    $storedHash = $value;
+                }
+            });
+
+        $service  = new SecretService($redis);
+        $service->createJson($request);
+
+        $wrongHex = bin2hex(random_bytes(32));
+
+        $redis2 = $this->makeRedisMock();
+        $redis2->method('get')
+            ->willReturnCallback(function (string $key) use ($storedHash) {
+                if (str_starts_with($key, 'json_verifier:')) {
+                    return $storedHash;
+                }
+                return null;
+            });
+
+        $service2 = new SecretService($redis2);
+
+        $this->expectException(InvalidVerifierException::class);
+        $service2->retrieveJson('abc123def456', $wrongHex);
+    }
+
+    // -------------------------------------------------------------------------
     // createJson()
     // -------------------------------------------------------------------------
 

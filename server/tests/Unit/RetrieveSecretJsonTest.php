@@ -297,6 +297,135 @@ class RetrieveSecretJsonTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
+    // Wire-format create→retrieve round trip (verifier encoding contract)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Drive both the create and retrieve route handlers with the same Redis
+     * mock to verify the verifier encoding is compatible end-to-end.
+     *
+     * This is the test that would have caught the hex2bin mismatch: the create
+     * handler stores bcrypt(hex2bin(verifierHex)) while the retrieve handler
+     * must also hex2bin before password_verify.
+     */
+    public function testCreateThenRetrieveRoundTripSucceeds(): void
+    {
+        $saltHex     = bin2hex(random_bytes(16));
+        $verifierHex = bin2hex(random_bytes(32));
+        $payloadHex  = bin2hex('test-nonce-ciphertext');
+
+        $createBody = json_encode([
+            'encrypted_secret' => "{$saltHex}\${$verifierHex}\${$payloadHex}",
+            'ttl'              => 3600,
+            'max_views'        => 1,
+        ]);
+
+        $store = [];
+        $redis = $this->makeRedisMock(['setex', 'incr', 'expire', 'get', 'eval']);
+        $redis->method('incr')->willReturn(1);
+        $redis->method('setex')
+            ->willReturnCallback(function (string $key, int $ttl, string $value) use (&$store) {
+                $store[$key] = $value;
+            });
+        $redis->method('get')
+            ->willReturnCallback(function (string $key) use (&$store) {
+                return $store[$key] ?? null;
+            });
+        $redis->method('eval')
+            ->willReturnCallback(function () use (&$store) {
+                $secret  = null;
+                $expires = null;
+                foreach ($store as $k => $v) {
+                    if (str_starts_with($k, 'json_secret:'))  $secret  = $v;
+                    if (str_starts_with($k, 'json_expires:')) $expires = $v;
+                }
+                return [$secret, $expires, '0'];
+            });
+
+        $logger = new Logger('test');
+
+        // Step 1: Create
+        $createClient  = $this->createMock(\Amp\Http\Server\Driver\Client::class);
+        $createRequest = new Request($createClient, 'POST', Http::new('http://localhost/api/create'));
+        $createRequest->setBody($createBody);
+
+        $createHandler  = ServerRoutes::createSecret($logger, $redis);
+        $createResponse = \Amp\Promise\wait($createHandler->handleRequest($createRequest));
+
+        $this->assertSame(Status::CREATED, $createResponse->getStatus());
+
+        $createParsed = json_decode(\Amp\Promise\wait($createResponse->getBody()->read()), true);
+        $secretID     = $createParsed['id'];
+
+        // Step 2: Retrieve with the same hex verifier
+        $retrieveBody    = json_encode(['id' => $secretID, 'verifier' => $verifierHex]);
+        $retrieveRequest = $this->makeRequest($retrieveBody);
+
+        $retrieveHandler  = ServerRoutes::retrieveSecretJson($logger, $redis);
+        $retrieveResponse = \Amp\Promise\wait($retrieveHandler->handleRequest($retrieveRequest));
+
+        $this->assertSame(Status::OK, $retrieveResponse->getStatus());
+
+        $retrieveParsed = json_decode(\Amp\Promise\wait($retrieveResponse->getBody()->read()), true);
+        $this->assertArrayHasKey('encrypted_secret', $retrieveParsed);
+        $this->assertNotEmpty($retrieveParsed['encrypted_secret']);
+    }
+
+    /**
+     * Create a secret then attempt retrieval with a different verifier hex
+     * string. Must return 401.
+     */
+    public function testCreateThenRetrieveWithWrongVerifierReturns401(): void
+    {
+        $saltHex     = bin2hex(random_bytes(16));
+        $verifierHex = bin2hex(random_bytes(32));
+        $payloadHex  = bin2hex('test-nonce-ciphertext');
+
+        $createBody = json_encode([
+            'encrypted_secret' => "{$saltHex}\${$verifierHex}\${$payloadHex}",
+            'ttl'              => 3600,
+            'max_views'        => 0,
+        ]);
+
+        $store = [];
+        $redis = $this->makeRedisMock(['setex', 'incr', 'expire', 'get', 'eval']);
+        $redis->method('incr')->willReturn(1);
+        $redis->method('setex')
+            ->willReturnCallback(function (string $key, int $ttl, string $value) use (&$store) {
+                $store[$key] = $value;
+            });
+        $redis->method('get')
+            ->willReturnCallback(function (string $key) use (&$store) {
+                return $store[$key] ?? null;
+            });
+
+        $logger = new Logger('test');
+
+        // Step 1: Create
+        $createClient  = $this->createMock(\Amp\Http\Server\Driver\Client::class);
+        $createRequest = new Request($createClient, 'POST', Http::new('http://localhost/api/create'));
+        $createRequest->setBody($createBody);
+
+        $createHandler  = ServerRoutes::createSecret($logger, $redis);
+        $createResponse = \Amp\Promise\wait($createHandler->handleRequest($createRequest));
+
+        $this->assertSame(Status::CREATED, $createResponse->getStatus());
+
+        $createParsed = json_decode(\Amp\Promise\wait($createResponse->getBody()->read()), true);
+        $secretID     = $createParsed['id'];
+
+        // Step 2: Retrieve with a WRONG verifier
+        $wrongHex        = bin2hex(random_bytes(32));
+        $retrieveBody    = json_encode(['id' => $secretID, 'verifier' => $wrongHex]);
+        $retrieveRequest = $this->makeRequest($retrieveBody);
+
+        $retrieveHandler  = ServerRoutes::retrieveSecretJson($logger, $redis);
+        $retrieveResponse = \Amp\Promise\wait($retrieveHandler->handleRequest($retrieveRequest));
+
+        $this->assertSame(Status::UNAUTHORIZED, $retrieveResponse->getStatus());
+    }
+
+    // -------------------------------------------------------------------------
     // Rate-limit headers are present on successful responses
     // -------------------------------------------------------------------------
 
