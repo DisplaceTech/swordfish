@@ -102,6 +102,8 @@ class ServerRoutes
     /**
      * Process a secret creation request and attempt to create the secret.
      *
+     * Accepts a JSON body with fields: salt, verifier, secret, ttl (optional), views (optional).
+     *
      * @param Logger $logger
      * @param Client $redisClient
      * @return CallableRequestHandler
@@ -113,17 +115,17 @@ class ServerRoutes
             $data = yield $request->getBody()->read();
             if (strlen($data) > 100 * 1000) {
                 $logger->error('Message payload too large!');
-                return new Response(Status::PAYLOAD_TOO_LARGE, ['content-type' => 'text/plain'], 'Payload Too Large');
+                return new Response(Status::PAYLOAD_TOO_LARGE, ['content-type' => 'application/json'], json_encode(['error' => 'Payload Too Large']));
             }
 
             try {
-                $secretRequest = CreateRequest::fromString($data);
+                $secretRequest = CreateRequest::fromJson($data);
             } catch (\InvalidArgumentException $e) {
-                $logger->error('Invalid TTL in creation request: ' . $e->getMessage());
+                $logger->error('Invalid field in creation request: ' . $e->getMessage());
                 return new Response(Status::UNPROCESSABLE_ENTITY, ['content-type' => 'application/json'], json_encode(['error' => $e->getMessage()]));
             } catch (\Exception $e) {
                 $logger->error('Unable to decode creation request');
-                return new Response(Status::BAD_REQUEST, ['content-type' => 'text/plain'], 'Bad Request');
+                return new Response(Status::BAD_REQUEST, ['content-type' => 'application/json'], json_encode(['error' => 'Bad Request']));
             }
 
             $secretID = $service->create($secretRequest);

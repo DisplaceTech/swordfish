@@ -3,13 +3,20 @@
  *
  * Encryption flow:
  *   1. Generate a random 16-byte salt.
- *   2. Derive an AES-GCM-256 key from the passphrase + salt via PBKDF2-SHA-256 (10 000 iterations).
- *   3. Derive a 32-byte verifier from the passphrase + fixed pepper via PBKDF2-SHA-256 (10 000 iterations).
+ *   2. Derive an AES-GCM-256 key from the passphrase + salt via PBKDF2-SHA-256 (200 000 iterations).
+ *   3. Derive a 32-byte verifier from the passphrase + fixed pepper via PBKDF2-SHA-256 (200 000 iterations).
  *   4. Encrypt the secret with AES-GCM-256 using a random 12-byte nonce.
  *   5. Return the serialised payload: hex(salt)$hex(verifier)$hex(nonce‖ciphertext).
  */
 
-const PBKDF2_ITERATIONS = 10_000
+const PBKDF2_ITERATIONS = 200_000
+
+/**
+ * Fixed domain-separation pepper for verifier derivation.
+ *
+ * WARNING: changing this value will break verifier checks for all existing secrets,
+ * as the server-stored bcrypt hash will no longer match the re-derived verifier.
+ */
 const VERIFIER_PEPPER = new TextEncoder().encode('swordfish-verifier-pepper-v1')
 
 /**

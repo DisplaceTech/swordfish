@@ -29,9 +29,8 @@ class SecretServiceTest extends TestCase
     {
         $redis = $this->makeRedisMock();
 
-        // create() stores 6 keys: verifier:, secret:, json_verifier:, json_secret:,
-        // json_expires:, json_views:
-        $redis->expects($this->exactly(6))
+        // create() with unlimited views stores 3 keys: verifier:, secret:, expires:
+        $redis->expects($this->exactly(3))
             ->method('setex')
             ->willReturnCallback(function (string $key, int $ttl, string $value) {
                 $this->assertGreaterThan(0, $ttl);
@@ -55,7 +54,7 @@ class SecretServiceTest extends TestCase
         $redis = $this->makeRedisMock();
 
         $capturedCalls = [];
-        $redis->expects($this->exactly(6))
+        $redis->expects($this->exactly(3))
             ->method('setex')
             ->willReturnCallback(function (string $key, int $ttl, string $value) use (&$capturedCalls) {
                 $capturedCalls[] = ['key' => $key, 'ttl' => $ttl];
@@ -87,15 +86,16 @@ class SecretServiceTest extends TestCase
         $this->assertSame($secretID, $secretKeyID);
     }
 
-    public function testCreateStoresJsonKeysWithMatchingTtl(): void
+    public function testCreateStoresViewsAndExpiresKeysForLimitedViews(): void
     {
         $redis = $this->makeRedisMock();
 
         $capturedCalls = [];
-        $redis->expects($this->exactly(6))
+        // 4 keys: verifier:, secret:, expires:, views:
+        $redis->expects($this->exactly(4))
             ->method('setex')
             ->willReturnCallback(function (string $key, int $ttl, string $value) use (&$capturedCalls) {
-                $capturedCalls[] = ['key' => $key, 'ttl' => $ttl];
+                $capturedCalls[] = ['key' => $key, 'ttl' => $ttl, 'value' => $value];
             });
 
         $service = new SecretService($redis);
@@ -109,25 +109,54 @@ class SecretServiceTest extends TestCase
 
         $secretID = $service->create($request);
 
-        $jsonVerifier = array_filter($capturedCalls, fn($c) => str_starts_with($c['key'], 'json_verifier:'));
-        $jsonSecret   = array_filter($capturedCalls, fn($c) => str_starts_with($c['key'], 'json_secret:'));
-        $jsonViews    = array_filter($capturedCalls, fn($c) => str_starts_with($c['key'], 'json_views:'));
-        $jsonExpires  = array_filter($capturedCalls, fn($c) => str_starts_with($c['key'], 'json_expires:'));
+        $verifierCall = array_filter($capturedCalls, fn($c) => str_starts_with($c['key'], 'verifier:'));
+        $secretCall   = array_filter($capturedCalls, fn($c) => str_starts_with($c['key'], 'secret:'));
+        $viewsCall    = array_filter($capturedCalls, fn($c) => str_starts_with($c['key'], 'views:'));
+        $expiresCall  = array_filter($capturedCalls, fn($c) => str_starts_with($c['key'], 'expires:'));
 
-        $this->assertCount(1, $jsonVerifier);
-        $this->assertCount(1, $jsonSecret);
-        $this->assertCount(1, $jsonViews);
-        $this->assertCount(1, $jsonExpires);
+        $this->assertCount(1, $verifierCall);
+        $this->assertCount(1, $secretCall);
+        $this->assertCount(1, $viewsCall);
+        $this->assertCount(1, $expiresCall);
 
-        $this->assertSame(7200, array_values($jsonVerifier)[0]['ttl']);
-        $this->assertSame(7230, array_values($jsonSecret)[0]['ttl']);
+        $this->assertSame(7200, array_values($verifierCall)[0]['ttl']);
+        $this->assertSame(7230, array_values($secretCall)[0]['ttl']);
+        $this->assertSame(7200, array_values($viewsCall)[0]['ttl']);
+        $this->assertSame('3', array_values($viewsCall)[0]['value']);
 
-        // All json_* keys must reference the same secretID
-        foreach ([$jsonVerifier, $jsonSecret, $jsonViews, $jsonExpires] as $calls) {
+        // All keys must reference the same secretID
+        foreach ([$verifierCall, $secretCall, $viewsCall, $expiresCall] as $calls) {
             $key = array_values($calls)[0]['key'];
             $id  = substr($key, strpos($key, ':') + 1);
             $this->assertSame($secretID, $id);
         }
+    }
+
+    public function testCreateDoesNotStoreViewsKeyForUnlimitedViews(): void
+    {
+        $redis = $this->makeRedisMock();
+
+        $capturedCalls = [];
+        // 3 keys only: verifier:, secret:, expires: — no views: key
+        $redis->expects($this->exactly(3))
+            ->method('setex')
+            ->willReturnCallback(function (string $key, int $ttl, string $value) use (&$capturedCalls) {
+                $capturedCalls[] = ['key' => $key];
+            });
+
+        $service = new SecretService($redis);
+        $request = new CreateRequest(
+            str_repeat('a', 16),
+            str_repeat('b', 32),
+            'payload',
+            3600,
+            0  // unlimited
+        );
+
+        $service->create($request);
+
+        $viewsCall = array_filter($capturedCalls, fn($c) => str_starts_with($c['key'], 'views:'));
+        $this->assertCount(0, $viewsCall);
     }
 
     // -------------------------------------------------------------------------
@@ -232,7 +261,7 @@ class SecretServiceTest extends TestCase
 
         $redis->method('get')
             ->willReturnCallback(function (string $key) use ($hash) {
-                if (str_starts_with($key, 'json_verifier:')) {
+                if (str_starts_with($key, 'verifier:')) {
                     return $hash;
                 }
                 return null;
@@ -252,14 +281,17 @@ class SecretServiceTest extends TestCase
 
         $redis->method('get')
             ->willReturnCallback(function (string $key) use ($hash) {
-                if (str_starts_with($key, 'json_verifier:')) {
+                if (str_starts_with($key, 'verifier:')) {
                     return $hash;
                 }
-                if (str_starts_with($key, 'json_secret:')) {
+                if (str_starts_with($key, 'secret:')) {
                     return 'encrypted-payload';
                 }
-                if (str_starts_with($key, 'json_expires:')) {
+                if (str_starts_with($key, 'expires:')) {
                     return '9999999999';
+                }
+                if (str_starts_with($key, 'views:')) {
+                    return '3'; // limited views present
                 }
                 return null;
             });
@@ -286,14 +318,17 @@ class SecretServiceTest extends TestCase
 
         $redis->method('get')
             ->willReturnCallback(function (string $key) use ($hash) {
-                if (str_starts_with($key, 'json_verifier:')) {
+                if (str_starts_with($key, 'verifier:')) {
                     return $hash;
                 }
-                if (str_starts_with($key, 'json_secret:')) {
+                if (str_starts_with($key, 'secret:')) {
                     return 'encrypted-payload';
                 }
-                if (str_starts_with($key, 'json_expires:')) {
+                if (str_starts_with($key, 'expires:')) {
                     return '9999999999';
+                }
+                if (str_starts_with($key, 'views:')) {
+                    return '1'; // limited views present
                 }
                 return null;
             });
@@ -306,5 +341,37 @@ class SecretServiceTest extends TestCase
         $result  = $service->retrieveJson('abc123def456', $verifier);
 
         $this->assertSame(0, $result['views_remaining']);
+    }
+
+    public function testRetrieveJsonReturnsMinusOneForUnlimitedViews(): void
+    {
+        $redis    = $this->makeRedisMock();
+        $verifier = 'my-verifier';
+        $hash     = password_hash($verifier, PASSWORD_DEFAULT);
+
+        $redis->method('get')
+            ->willReturnCallback(function (string $key) use ($hash) {
+                if (str_starts_with($key, 'verifier:')) {
+                    return $hash;
+                }
+                if (str_starts_with($key, 'secret:')) {
+                    return 'encrypted-payload';
+                }
+                if (str_starts_with($key, 'expires:')) {
+                    return '9999999999';
+                }
+                // No views: key — unlimited
+                return null;
+            });
+
+        $redis->expects($this->never())->method('decr');
+        $redis->expects($this->never())->method('del');
+
+        $service = new SecretService($redis);
+        $result  = $service->retrieveJson('abc123def456', $verifier);
+
+        $this->assertSame('encrypted-payload', $result['encrypted_secret']);
+        $this->assertSame(-1, $result['views_remaining']);
+        $this->assertSame(9999999999, $result['expires_at']);
     }
 }

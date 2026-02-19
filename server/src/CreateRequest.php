@@ -116,4 +116,59 @@ class CreateRequest
 
        return new self($salt, $verifier, $secret, $ttl, $views);
     }
+
+    /**
+     * Deserialize a JSON request body and create a new object from it.
+     *
+     * Expected JSON fields:
+     *   salt     — hex-encoded 16-byte salt
+     *   verifier — hex-encoded 32-byte verifier
+     *   secret   — hex-encoded nonce+ciphertext
+     *   ttl      — (optional) TTL in seconds
+     *   views    — (optional) maximum view count (0 = unlimited)
+     *
+     * @param string $raw JSON string
+     *
+     * @throws \Exception
+     * @throws \InvalidArgumentException
+     *
+     * @return CreateRequest
+     */
+    public static function fromJson(string $raw): CreateRequest
+    {
+        $data = json_decode($raw, true);
+        if ($data === null || !isset($data['salt'], $data['verifier'], $data['secret'])) {
+            throw new \Exception('Invalid JSON request!');
+        }
+
+        $salt     = hex2bin($data['salt']);
+        $verifier = hex2bin($data['verifier']);
+        $secret   = hex2bin($data['secret']);
+
+        if (strlen($salt) !== 16) {
+            throw new \Exception('Invalid salt length!');
+        }
+
+        if (strlen($verifier) !== 32) {
+            throw new \Exception('Invalid verifier length!');
+        }
+
+        $ttl = self::DEFAULT_TTL;
+        if (isset($data['ttl'])) {
+            $ttl = (int) $data['ttl'];
+            if ($ttl < 1 || $ttl > self::MAX_TTL) {
+                throw new \InvalidArgumentException(sprintf('TTL must be between 1 and %d seconds.', self::MAX_TTL));
+            }
+        }
+
+        $views = self::DEFAULT_VIEWS;
+        if (isset($data['views'])) {
+            $views = (int) $data['views'];
+            if ($views < 0 || $views > self::MAX_VIEWS) {
+                throw new \InvalidArgumentException(sprintf('View limit must be between 0 (unlimited) and %d.', self::MAX_VIEWS));
+            }
+        }
+
+        return new self($salt, $verifier, $secret, $ttl, $views);
+    }
 }

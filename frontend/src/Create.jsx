@@ -43,12 +43,19 @@ function SelectField({ id, value, onChange, options }) {
 
 function ShareableLink({ secretId }) {
   const [copied, setCopied] = useState(false)
+  const [copyError, setCopyError] = useState(false)
   const url = `${window.location.origin}/secret/${secretId}`
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(url)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setCopyError(false)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopyError(true)
+      setTimeout(() => setCopyError(false), 3000)
+    }
   }
 
   return (
@@ -73,6 +80,11 @@ function ShareableLink({ secretId }) {
           {copied ? 'Copied!' : 'Copy'}
         </button>
       </div>
+      {copyError && (
+        <p className="mt-2 text-xs text-red-400">
+          Could not copy to clipboard. Please copy the link manually.
+        </p>
+      )}
     </div>
   )
 }
