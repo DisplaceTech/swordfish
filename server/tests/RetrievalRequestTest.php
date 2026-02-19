@@ -20,7 +20,7 @@ class RetrievalRequestTest extends TestCase
     public function testVerifyPasswordReturnsTrueForCorrectHash(): void
     {
         $verifier = random_bytes(32);
-        $hash     = password_hash($verifier, PASSWORD_DEFAULT);
+        $hash     = password_hash(hash('sha256', $verifier), PASSWORD_DEFAULT);
 
         $request = new RetrievalRequest('abc123def456', $verifier);
 
@@ -30,7 +30,7 @@ class RetrievalRequestTest extends TestCase
     public function testVerifyPasswordReturnsFalseForWrongHash(): void
     {
         $verifier  = random_bytes(32);
-        $wrongHash = password_hash(random_bytes(32), PASSWORD_DEFAULT);
+        $wrongHash = password_hash(hash('sha256', random_bytes(32)), PASSWORD_DEFAULT);
 
         $request = new RetrievalRequest('abc123def456', $verifier);
 

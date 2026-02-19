@@ -26,12 +26,15 @@ class RetrievalRequest
     /**
      * Verify the submitted password against a known/stored password hash.
      *
+     * The verifier is pre-hashed with SHA-256 before bcrypt to safely handle binary input,
+     * matching the approach used in CreateRequest::verifier().
+     *
      * @param string $hash
      * @return bool
      */
     public function verify_password(string $hash): bool
     {
-       return password_verify($this->verifier, $hash);
+        return password_verify(hash('sha256', $this->verifier), $hash);
     }
 
     /**

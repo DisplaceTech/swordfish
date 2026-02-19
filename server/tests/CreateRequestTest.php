@@ -24,7 +24,7 @@ class CreateRequestTest extends TestCase
 
         $hash = $request->verifier();
 
-        $this->assertTrue(password_verify($this->verifier, $hash));
+        $this->assertTrue(password_verify(hash('sha256', $this->verifier), $hash));
     }
 
     public function testSecretReturnsBinHexEncodedSaltAndSecret(): void
@@ -45,7 +45,7 @@ class CreateRequestTest extends TestCase
         $serialized = bin2hex($salt) . '$' . bin2hex($verifier) . '$' . bin2hex($secret);
         $request    = CreateRequest::fromString($serialized);
 
-        $this->assertTrue(password_verify($verifier, $request->verifier()));
+        $this->assertTrue(password_verify(hash('sha256', $verifier), $request->verifier()));
         $this->assertSame(bin2hex($salt . $secret), $request->secret());
     }
 

@@ -18,11 +18,13 @@ class CreateRequest
     /**
      * Retrieve a hashed version of the verifier used to authenticate requests for secrets.
      *
+     * The verifier is pre-hashed with SHA-256 before bcrypt to safely handle binary input.
+     *
      * @return string
      */
     public function verifier(): string
     {
-        return password_hash($this->verifier, PASSWORD_DEFAULT);
+        return password_hash(hash('sha256', $this->verifier), PASSWORD_DEFAULT);
     }
 
     /**
