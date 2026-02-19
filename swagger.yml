@@ -134,8 +134,9 @@ paths:
         - in: "body"
           name: "body"
           description: |
-            Serialized secret to store in the server. Format: hex(salt)$hex(verifier)$hex(secret)[$ttl]
+            Serialized secret to store in the server. Format: hex(salt)$hex(verifier)$hex(secret)[$ttl[$max_views]]
             The optional TTL field specifies the secret lifetime in seconds (1–604800). Defaults to 86400.
+            The optional max_views field limits how many times the secret may be retrieved. Allowed values: 1, 3, 5, 10, or 0 (unlimited, default).
           required: true
           schema:
             type: "string"
@@ -147,7 +148,7 @@ paths:
         "413":
           description: "Payload Too Large"
         "422":
-          description: "Unprocessable Entity — TTL out of range"
+          description: "Unprocessable Entity — TTL out of range or invalid max_views"
   /api/retrieve:
     post:
       summary: "Retrieve a secret from the datastore."
@@ -185,7 +186,8 @@ paths:
                 description: "The encrypted secret payload"
               views_remaining:
                 type: "integer"
-                description: "Number of views remaining after this retrieval"
+                description: "Number of views remaining after this retrieval; null for unlimited secrets"
+                x-nullable: true
               expires_at:
                 type: "integer"
                 description: "Unix timestamp when the secret expires"

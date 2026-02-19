@@ -119,14 +119,14 @@ class ServerRoutes
             try {
                 $secretRequest = CreateRequest::fromString($data);
             } catch (\InvalidArgumentException $e) {
-                $logger->error('Invalid TTL in creation request: ' . $e->getMessage());
+                $logger->error('Invalid parameter in creation request: ' . $e->getMessage());
                 return new Response(Status::UNPROCESSABLE_ENTITY, ['content-type' => 'application/json'], json_encode(['error' => $e->getMessage()]));
             } catch (\Exception $e) {
                 $logger->error('Unable to decode creation request');
                 return new Response(Status::BAD_REQUEST, ['content-type' => 'text/plain'], 'Bad Request');
             }
 
-            $secretID = $service->create($secretRequest);
+            $secretID = $service->createJson($secretRequest);
             $logger->info(sprintf('Created secret %s', $secretID));
 
             return new Response(Status::CREATED, ['content-type' => 'text/plain'], $secretID);

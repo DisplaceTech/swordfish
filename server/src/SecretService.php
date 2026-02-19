@@ -31,6 +31,38 @@ class SecretService
     }
 
     /**
+     * Store a new JSON-API secret with view counter and expiry metadata.
+     *
+     * Generates a random 12-character hex ID and stores the verifier hash,
+     * secret payload, expiry timestamp, and (when limited) view counter in Redis.
+     * When max_views is 0 the secret has unlimited views.
+     *
+     * @param CreateRequest $request
+     * @return string The generated secret ID
+     */
+    public function createJson(CreateRequest $request): string
+    {
+        $secretID    = bin2hex(random_bytes(6));
+        $secretKey   = "json_secret:{$secretID}";
+        $verifierKey = "json_verifier:{$secretID}";
+        $viewsKey    = "json_views:{$secretID}";
+        $expiresKey  = "json_expires:{$secretID}";
+        $ttl         = $request->ttl();
+        $maxViews    = $request->maxViews();
+        $expiresAt   = time() + $ttl;
+
+        $this->redis->setex($verifierKey, $ttl, $request->verifier());
+        $this->redis->setex($secretKey, $ttl + 30, $request->secret());
+        $this->redis->setex($expiresKey, $ttl + 30, (string) $expiresAt);
+
+        if ($maxViews > 0) {
+            $this->redis->setex($viewsKey, $ttl, (string) $maxViews);
+        }
+
+        return $secretID;
+    }
+
+    /**
      * Retrieve a v1 secret after verifying the supplied password.
      *
      * @param string $secretID
@@ -66,11 +98,12 @@ class SecretService
      * Retrieve a JSON-API secret after verifying the supplied verifier.
      *
      * Decrements the view counter and deletes all associated keys when views
-     * are exhausted.
+     * are exhausted. When no views key exists the secret has unlimited views
+     * and views_remaining is returned as null.
      *
      * @param string $secretID
      * @param string $verifier Plain-text verifier submitted by the client
-     * @return array{encrypted_secret: string, views_remaining: int, expires_at: int}
+     * @return array{encrypted_secret: string, views_remaining: int|null, expires_at: int}
      *
      * @throws SecretNotFoundException  When the verifier or secret key is absent
      * @throws InvalidVerifierException When the verifier does not match the stored hash
@@ -96,16 +129,23 @@ class SecretService
             throw new SecretNotFoundException(sprintf('JSON secret %s not found.', $secretID));
         }
 
-        $expiresAt  = (int) $this->redis->get($expiresKey);
-        $viewsAfter = (int) $this->redis->decr($viewsKey);
+        $expiresAt = (int) $this->redis->get($expiresKey);
 
-        if ($viewsAfter <= 0) {
-            $this->redis->del($secretKey, $verifierKey, $viewsKey, $expiresKey);
+        $viewsRaw = $this->redis->get($viewsKey);
+        if ($viewsRaw === null) {
+            // Unlimited views — no counter to decrement
+            $viewsRemaining = null;
+        } else {
+            $viewsAfter = (int) $this->redis->decr($viewsKey);
+            if ($viewsAfter <= 0) {
+                $this->redis->del($secretKey, $verifierKey, $viewsKey, $expiresKey);
+            }
+            $viewsRemaining = max(0, $viewsAfter);
         }
 
         return [
             'encrypted_secret' => $encryptedSecret,
-            'views_remaining'  => max(0, $viewsAfter),
+            'views_remaining'  => $viewsRemaining,
             'expires_at'       => $expiresAt,
         ];
     }
