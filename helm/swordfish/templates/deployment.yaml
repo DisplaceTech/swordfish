@@ -33,6 +33,10 @@ spec:
             - name: http
               containerPort: {{ .Values.server.service.port }}
               protocol: TCP
+          livenessProbe:
+            {{- toYaml .Values.server.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.server.readinessProbe | nindent 12 }}
           env:
             - name: SERVER_PORT
               value: {{ .Values.server.env.SERVER_PORT | quote }}
