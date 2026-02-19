@@ -7,4 +7,9 @@ export default defineConfig({
     outDir: '../server/static',
     emptyOutDir: false,
   },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/__tests__/setup.js'],
+  },
 })
