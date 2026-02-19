@@ -187,7 +187,7 @@ class CreateSecretJsonTest extends TestCase
         $redis  = $this->makeRedisMock();
         $redis->method('setex');
 
-        $ttl      = 7200;
+        $ttl      = 21600;
         $before   = time();
         $handler  = ServerRoutes::createSecret($logger, $redis);
         $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest($this->validPayload($ttl))));
@@ -199,5 +199,21 @@ class CreateSecretJsonTest extends TestCase
 
         $this->assertGreaterThanOrEqual($before + $ttl, $expiresAt);
         $this->assertLessThanOrEqual($after + $ttl, $expiresAt);
+    }
+
+    public function testReturns422OnDisallowedTtlValue(): void
+    {
+        $logger = new Logger('test');
+        $redis  = $this->makeRedisMock();
+
+        $handler  = ServerRoutes::createSecret($logger, $redis);
+        $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest($this->validPayload(7200))));
+
+        $this->assertSame(Status::UNPROCESSABLE_ENTITY, $response->getStatus());
+
+        $body   = \Amp\Promise\wait($response->getBody()->read());
+        $parsed = json_decode($body, true);
+        $this->assertSame('Unprocessable Entity', $parsed['error']);
+        $this->assertStringContainsString('TTL must be one of', $parsed['message']);
     }
 }
