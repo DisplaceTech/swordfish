@@ -7,4 +7,7 @@ export default defineConfig({
     outDir: '../server/static',
     emptyOutDir: false,
   },
+  test: {
+    environment: 'node',
+  },
 })
