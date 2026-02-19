@@ -4,23 +4,44 @@ namespace Swordfish\CLI;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class CreateSecretCommand extends Command
 {
     protected static $defaultName = 'secret:create';
 
+    private const TTL_MAP = [
+        '1h'  => 3600,
+        '6h'  => 21600,
+        '24h' => 86400,
+        '3d'  => 259200,
+        '7d'  => 604800,
+    ];
+
     protected function configure()
     {
         $this->setDescription('Creates an encrypted secret on the server.')
             ->setHelp('This command allows you to create a secret, fully encrypted on the server.')
             ->addArgument('secret', InputArgument::REQUIRED, 'Plaintext secret to protect.')
-            ->addArgument('password', InputArgument::REQUIRED, 'User-friendly password used to protect the secret.');
+            ->addArgument('password', InputArgument::REQUIRED, 'User-friendly password used to protect the secret.')
+            ->addOption('ttl', null, InputOption::VALUE_REQUIRED, 'Time-to-live for the secret (1h, 6h, 24h, 3d, 7d).', '24h');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $serverUrl = getenv('SWORDFISH_URL') ?: 'https://swordfish.displace.tech';
+
+        $ttlString = $input->getOption('ttl');
+        if (!array_key_exists($ttlString, self::TTL_MAP)) {
+            $output->writeln(sprintf(
+                'Invalid TTL "%s". Allowed values: %s.',
+                $ttlString,
+                implode(', ', array_keys(self::TTL_MAP))
+            ));
+            return Command::FAILURE;
+        }
+        $ttl = self::TTL_MAP[$ttlString];
 
         $password = $input->getArgument('password');
         $secret = $input->getArgument('secret');
@@ -36,7 +57,7 @@ class CreateSecretCommand extends Command
 
         $encryptedSecret = bin2hex($salt) . '$' . $verifier . '$' . $encrypted;
 
-        $response = $this->httpPost("{$serverUrl}/api/create", ['encrypted_secret' => $encryptedSecret]);
+        $response = $this->httpPost("{$serverUrl}/api/create", ['encrypted_secret' => $encryptedSecret, 'ttl' => $ttl]);
 
         if ($response === false) {
             $output->writeln('Network error: could not reach server');
