@@ -127,27 +127,78 @@ paths:
       tags:
         - "api"
       consumes:
-        - "text/plain"
+        - "application/json"
       produces:
-        - "text/plain"
+        - "application/json"
       parameters:
         - in: "body"
           name: "body"
-          description: |
-            Serialized secret to store in the server. Format: hex(salt)$hex(verifier)$hex(secret)[$ttl]
-            The optional TTL field specifies the secret lifetime in seconds (1–604800). Defaults to 86400.
+          description: "JSON secret creation request."
           required: true
           schema:
-            type: "string"
+            type: "object"
+            required:
+              - "encrypted_secret"
+            properties:
+              encrypted_secret:
+                type: "string"
+                description: "Client-side encrypted secret payload"
+              ttl:
+                type: "integer"
+                description: "Secret lifetime in seconds (1–604800). Defaults to 86400."
+                default: 86400
+              max_views:
+                type: "integer"
+                description: "Maximum number of retrieval views. Defaults to 1."
+                default: 1
       responses:
         "201":
           description: "Created"
+          schema:
+            type: "object"
+            properties:
+              id:
+                type: "string"
+                description: "Compound secretID:verifier string. Split on ':' to obtain the id and verifier for the retrieve endpoint."
+              expires_at:
+                type: "integer"
+                description: "Unix timestamp when the secret expires"
+              max_views:
+                type: "integer"
+                description: "Maximum number of retrieval views"
         "400":
           description: "Bad Request"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+                example: "Bad Request"
+              message:
+                type: "string"
+                example: "Request body must be valid JSON with an encrypted_secret field."
         "413":
           description: "Payload Too Large"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+                example: "Payload Too Large"
+              message:
+                type: "string"
+                example: "Request body exceeds the 100 KB limit."
         "422":
-          description: "Unprocessable Entity — TTL out of range"
+          description: "Unprocessable Entity — TTL out of range or max_views < 1"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+                example: "Unprocessable Entity"
+              message:
+                type: "string"
+                example: "ttl must be between 1 and 604800 seconds."
   /api/retrieve:
     post:
       summary: "Retrieve a secret from the datastore."
@@ -197,6 +248,9 @@ paths:
               error:
                 type: "string"
                 example: "Bad Request"
+              message:
+                type: "string"
+                example: "Request body must be valid JSON with id and verifier fields."
         "401":
           description: "Unauthorized"
           schema:
@@ -204,7 +258,10 @@ paths:
             properties:
               error:
                 type: "string"
-                example: "Invalid authorization"
+                example: "Unauthorized"
+              message:
+                type: "string"
+                example: "Invalid authorization."
         "404":
           description: "Not Found"
           schema:
@@ -212,4 +269,7 @@ paths:
             properties:
               error:
                 type: "string"
-                example: "Not found or expired"
+                example: "Not Found"
+              message:
+                type: "string"
+                example: "Secret not found or has expired."

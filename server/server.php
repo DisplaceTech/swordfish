@@ -50,7 +50,7 @@ Amp\Loop::run(function () {
     /**  Server back-end API                                  **/
     /***********************************************************/
 
-    $router->addRoute('POST', '/api/create', ServerRoutes::createSecret($logger, $redisClient));
+    $router->addRoute('POST', '/api/create', ServerRoutes::createSecretJson($logger, $redisClient));
     $router->addRoute('POST', '/create', ServerRoutes::redirectCreate($logger));
     $router->addRoute('POST', '/api/retrieve', ServerRoutes::retrieveSecretJson($logger, $redisClient));
     $router->addRoute('POST', '/retrieve', ServerRoutes::redirectRetrieve($logger));
