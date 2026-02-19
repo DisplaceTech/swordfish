@@ -57,9 +57,8 @@ class RetrieveSecretJsonTest extends TestCase
     public function testReturns200WithSecretDataForUnlimitedSecret(): void
     {
         $secretID    = 'abc123def456';
-        $rawVerifier = str_repeat("\xab", 32);
-        $hexVerifier = bin2hex($rawVerifier);
-        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
+        $hexVerifier = bin2hex(str_repeat("\xab", 32));
+        $hash        = password_hash($hexVerifier, PASSWORD_DEFAULT);
 
         $redis = $this->makeRedisMock();
         $redis->method('get')
@@ -93,9 +92,8 @@ class RetrieveSecretJsonTest extends TestCase
     public function testReturns200WithViewsRemainingForLimitedSecret(): void
     {
         $secretID    = 'abc123def456';
-        $rawVerifier = str_repeat("\xab", 32);
-        $hexVerifier = bin2hex($rawVerifier);
-        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
+        $hexVerifier = bin2hex(str_repeat("\xab", 32));
+        $hash        = password_hash($hexVerifier, PASSWORD_DEFAULT);
 
         $redis = $this->makeRedisMock();
         $redis->method('get')
@@ -126,9 +124,8 @@ class RetrieveSecretJsonTest extends TestCase
     public function testReturns200WhenLastViewIsConsumed(): void
     {
         $secretID    = 'abc123def456';
-        $rawVerifier = str_repeat("\xab", 32);
-        $hexVerifier = bin2hex($rawVerifier);
-        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
+        $hexVerifier = bin2hex(str_repeat("\xab", 32));
+        $hash        = password_hash($hexVerifier, PASSWORD_DEFAULT);
 
         $redis = $this->makeRedisMock();
         $redis->method('get')
@@ -222,9 +219,9 @@ class RetrieveSecretJsonTest extends TestCase
     public function testReturns401OnInvalidVerifier(): void
     {
         $secretID       = 'abc123def456';
-        $correctBinary  = str_repeat("\xab", 32);
+        $correctHex     = bin2hex(str_repeat("\xab", 32));
         $wrongHex       = bin2hex(str_repeat("\xcd", 32));
-        $hash           = password_hash($correctBinary, PASSWORD_DEFAULT);
+        $hash           = password_hash($correctHex, PASSWORD_DEFAULT);
 
         $redis = $this->makeRedisMock();
         $redis->method('get')->willReturn($hash);
@@ -270,9 +267,8 @@ class RetrieveSecretJsonTest extends TestCase
     public function testReturns404WhenViewsExhausted(): void
     {
         $secretID    = 'abc123def456';
-        $rawVerifier = str_repeat("\xab", 32);
-        $hexVerifier = bin2hex($rawVerifier);
-        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
+        $hexVerifier = bin2hex(str_repeat("\xab", 32));
+        $hash        = password_hash($hexVerifier, PASSWORD_DEFAULT);
 
         $redis = $this->makeRedisMock();
         $redis->method('get')
@@ -304,9 +300,10 @@ class RetrieveSecretJsonTest extends TestCase
      * Drive both the create and retrieve route handlers with the same Redis
      * mock to verify the verifier encoding is compatible end-to-end.
      *
-     * This is the test that would have caught the hex2bin mismatch: the create
-     * handler stores bcrypt(hex2bin(verifierHex)) while the retrieve handler
-     * must also hex2bin before password_verify.
+     * Both sides now operate on the hex-encoded verifier string:
+     * create stores bcrypt(bin2hex(rawVerifier)), retrieve calls
+     * password_verify(hexVerifier, hash). This avoids the bcrypt null-byte
+     * limitation while keeping the encoding consistent.
      */
     public function testCreateThenRetrieveRoundTripSucceeds(): void
     {
@@ -432,9 +429,8 @@ class RetrieveSecretJsonTest extends TestCase
     public function testRateLimitHeadersPresentOnSuccessResponse(): void
     {
         $secretID    = 'abc123def456';
-        $rawVerifier = str_repeat("\xab", 32);
-        $hexVerifier = bin2hex($rawVerifier);
-        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
+        $hexVerifier = bin2hex(str_repeat("\xab", 32));
+        $hash        = password_hash($hexVerifier, PASSWORD_DEFAULT);
 
         $redis = $this->makeRedisMock();
         $redis->method('get')

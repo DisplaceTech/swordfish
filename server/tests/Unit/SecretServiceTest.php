@@ -104,8 +104,7 @@ class SecretServiceTest extends TestCase
     public function testRetrieveThrowsInvalidVerifierOnBadPassword(): void
     {
         $redis = $this->makeRedisMock();
-        // Return a hash that will NOT match 'wrong-verifier'
-        $redis->method('get')->willReturn(password_hash('correct-verifier', PASSWORD_DEFAULT));
+        $redis->method('get')->willReturn(password_hash(bin2hex('correct-verifier'), PASSWORD_DEFAULT));
 
         $service = new SecretService($redis);
 
@@ -117,14 +116,14 @@ class SecretServiceTest extends TestCase
     {
         $redis = $this->makeRedisMock();
         $verifier = 'my-verifier';
-        $hash     = password_hash($verifier, PASSWORD_DEFAULT);
+        $hash     = password_hash(bin2hex($verifier), PASSWORD_DEFAULT);
 
         $redis->method('get')
             ->willReturnCallback(function (string $key) use ($hash) {
                 if (str_starts_with($key, 'verifier:')) {
                     return $hash;
                 }
-                return null; // secret key missing
+                return null;
             });
 
         $service = new SecretService($redis);
@@ -137,7 +136,7 @@ class SecretServiceTest extends TestCase
     {
         $redis    = $this->makeRedisMock();
         $verifier = 'my-verifier';
-        $hash     = password_hash($verifier, PASSWORD_DEFAULT);
+        $hash     = password_hash(bin2hex($verifier), PASSWORD_DEFAULT);
         $payload  = 'the-secret-payload';
 
         $redis->method('get')
@@ -172,8 +171,8 @@ class SecretServiceTest extends TestCase
     public function testRetrieveJsonThrowsInvalidVerifierOnBadPassword(): void
     {
         $redis = $this->makeRedisMock();
-        $correctBinary = str_repeat("\xab", 32);
-        $redis->method('get')->willReturn(password_hash($correctBinary, PASSWORD_DEFAULT));
+        $correctHex = bin2hex(str_repeat("\xab", 32));
+        $redis->method('get')->willReturn(password_hash($correctHex, PASSWORD_DEFAULT));
 
         $service = new SecretService($redis);
 
@@ -184,9 +183,8 @@ class SecretServiceTest extends TestCase
     public function testRetrieveJsonThrowsSecretNotFoundWhenSecretKeyMissing(): void
     {
         $redis       = $this->makeRedisMock();
-        $rawVerifier = str_repeat("\xab", 32);
-        $hexVerifier = bin2hex($rawVerifier);
-        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
+        $hexVerifier = bin2hex(str_repeat("\xab", 32));
+        $hash        = password_hash($hexVerifier, PASSWORD_DEFAULT);
 
         $redis->method('get')
             ->willReturnCallback(function (string $key) use ($hash) {
@@ -208,9 +206,8 @@ class SecretServiceTest extends TestCase
     public function testRetrieveJsonReturnsDataAndDecrementsViews(): void
     {
         $redis       = $this->makeRedisMock();
-        $rawVerifier = str_repeat("\xab", 32);
-        $hexVerifier = bin2hex($rawVerifier);
-        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
+        $hexVerifier = bin2hex(str_repeat("\xab", 32));
+        $hash        = password_hash($hexVerifier, PASSWORD_DEFAULT);
 
         $redis->method('get')
             ->willReturnCallback(function (string $key) use ($hash) {
@@ -236,9 +233,8 @@ class SecretServiceTest extends TestCase
     public function testRetrieveJsonDeletesAllKeysWhenViewsExhausted(): void
     {
         $redis       = $this->makeRedisMock();
-        $rawVerifier = str_repeat("\xab", 32);
-        $hexVerifier = bin2hex($rawVerifier);
-        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
+        $hexVerifier = bin2hex(str_repeat("\xab", 32));
+        $hash        = password_hash($hexVerifier, PASSWORD_DEFAULT);
 
         $redis->method('get')
             ->willReturnCallback(function (string $key) use ($hash) {
@@ -260,9 +256,8 @@ class SecretServiceTest extends TestCase
     public function testRetrieveJsonReturnsNullViewsRemainingForUnlimitedSecret(): void
     {
         $redis       = $this->makeRedisMock();
-        $rawVerifier = str_repeat("\xab", 32);
-        $hexVerifier = bin2hex($rawVerifier);
-        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
+        $hexVerifier = bin2hex(str_repeat("\xab", 32));
+        $hash        = password_hash($hexVerifier, PASSWORD_DEFAULT);
 
         $redis->method('get')
             ->willReturnCallback(function (string $key) use ($hash) {
@@ -288,9 +283,8 @@ class SecretServiceTest extends TestCase
     public function testRetrieveJsonThrowsSecretNotFoundWhenViewsAlreadyExhausted(): void
     {
         $redis       = $this->makeRedisMock();
-        $rawVerifier = str_repeat("\xab", 32);
-        $hexVerifier = bin2hex($rawVerifier);
-        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
+        $hexVerifier = bin2hex(str_repeat("\xab", 32));
+        $hash        = password_hash($hexVerifier, PASSWORD_DEFAULT);
 
         $redis->method('get')
             ->willReturnCallback(function (string $key) use ($hash) {

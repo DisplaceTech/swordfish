@@ -125,7 +125,7 @@ LUA;
             throw new SecretNotFoundException(sprintf('Verification code for secret %s not found.', $secretID));
         }
 
-        if (!password_verify($verifier, $hash)) {
+        if (!password_verify(bin2hex($verifier), $hash)) {
             throw new InvalidVerifierException(sprintf('Invalid verifier for secret %s.', $secretID));
         }
 
@@ -193,8 +193,7 @@ LUA;
             throw new SecretNotFoundException(sprintf('Verification code for JSON secret %s not found.', $secretID));
         }
 
-        $rawVerifier = hex2bin($verifier);
-        if ($rawVerifier === false || !password_verify($rawVerifier, $hash)) {
+        if (!password_verify($verifier, $hash)) {
             throw new InvalidVerifierException(sprintf('Invalid verifier for JSON secret %s.', $secretID));
         }
 

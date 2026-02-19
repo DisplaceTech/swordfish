@@ -49,7 +49,7 @@ class RetrieveSecretTest extends TestCase
     {
         $secretID = 'abc123def456';
         $verifier = str_repeat('v', 32);
-        $hash     = password_hash($verifier, PASSWORD_DEFAULT);
+        $hash     = password_hash(bin2hex($verifier), PASSWORD_DEFAULT);
         $payload  = 'the-encrypted-secret';
 
         $redis = $this->makeRedisMock();
@@ -118,7 +118,7 @@ class RetrieveSecretTest extends TestCase
     {
         $secretID = 'abc123def456';
         $verifier = str_repeat('v', 32);
-        $hash     = password_hash('different-verifier', PASSWORD_DEFAULT);
+        $hash     = password_hash(bin2hex('different-verifier'), PASSWORD_DEFAULT);
 
         $redis = $this->makeRedisMock();
         $redis->method('get')->willReturn($hash);
@@ -153,7 +153,7 @@ class RetrieveSecretTest extends TestCase
     {
         $secretID = 'abc123def456';
         $verifier = str_repeat('v', 32);
-        $hash     = password_hash($verifier, PASSWORD_DEFAULT);
+        $hash     = password_hash(bin2hex($verifier), PASSWORD_DEFAULT);
 
         $redis = $this->makeRedisMock();
         $redis->method('get')
