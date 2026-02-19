@@ -14,7 +14,7 @@ class RetrieveSecretCommand extends Command
     {
         $this->setDescription('Retrieves an encrypted secret from the server.')
             ->setHelp('This command allows you to retrieve a secret from the server and decrypt it locally.')
-            ->addArgument('secret-id', InputArgument::REQUIRED, 'Compound secret ID (secretID:verifier) returned at creation time.')
+            ->addArgument('secret-id', InputArgument::REQUIRED, 'ID of the secret to retrieve.')
             ->addArgument('password', InputArgument::REQUIRED, 'User-friendly password used to protect the secret.');
     }
 
@@ -23,10 +23,9 @@ class RetrieveSecretCommand extends Command
         $serverUrl = getenv('SWORDFISH_URL') ?: 'https://swordfish.displace.tech';
 
         $password = $input->getArgument('password');
-        $compoundId = $input->getArgument('secret-id');
+        $secretId = $input->getArgument('secret-id');
 
-        [$secretId, $verifier] = array_pad(explode(':', $compoundId, 2), 2, '');
-
+        $verifier = hash_pbkdf2('sha256', $password, SWORDFISH_PEPPER, 10000);
         $payload = json_encode(['id' => $secretId, 'verifier' => $verifier]);
 
         $ch = curl_init();

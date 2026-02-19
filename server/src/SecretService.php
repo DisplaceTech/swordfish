@@ -95,29 +95,33 @@ class SecretService
     }
 
     /**
-     * Store a new JSON-API secret and generate a random verifier.
+     * Store a JSON-API secret submitted via the JSON create endpoint.
      *
-     * Generates a random 12-character hex ID and a random 32-character hex verifier,
-     * stores all four JSON-API keys in Redis, and returns the compound ID and metadata.
+     * Accepts a pre-encrypted secret payload and a PBKDF2-derived verifier from
+     * the client, stores them with json_* Redis keys, and returns the secret ID
+     * and metadata as an array.
      *
-     * @param string $encryptedSecret Client-side encrypted secret payload (hex-encoded)
+     * @param string $encryptedSecret Hex-encoded client-side encrypted payload
+     * @param string $verifier        Plain-text PBKDF2 verifier from the client
      * @param int    $ttl             Lifetime in seconds
-     * @param int    $maxViews        Maximum number of retrieval views
+     * @param int    $maxViews        Maximum views (0 = unlimited)
      * @return array{id: string, expires_at: int, max_views: int}
      */
-    public function createJson(string $encryptedSecret, int $ttl, int $maxViews): array
+    public function createJsonApi(string $encryptedSecret, string $verifier, int $ttl, int $maxViews): array
     {
         $secretID  = bin2hex(random_bytes(6));
-        $verifier  = bin2hex(random_bytes(16));
         $expiresAt = time() + $ttl;
 
         $this->redis->setex("json_verifier:{$secretID}", $ttl,      password_hash($verifier, PASSWORD_DEFAULT));
         $this->redis->setex("json_secret:{$secretID}",   $ttl + 30, $encryptedSecret);
-        $this->redis->setex("json_views:{$secretID}",    $ttl,      (string) $maxViews);
-        $this->redis->setex("json_expires:{$secretID}",  $ttl,      (string) $expiresAt);
+        $this->redis->setex("json_expires:{$secretID}",  $ttl + 30, (string) $expiresAt);
+
+        if ($maxViews > 0) {
+            $this->redis->setex("json_views:{$secretID}", $ttl, (string) $maxViews);
+        }
 
         return [
-            'id'         => "{$secretID}:{$verifier}",
+            'id'         => $secretID,
             'expires_at' => $expiresAt,
             'max_views'  => $maxViews,
         ];

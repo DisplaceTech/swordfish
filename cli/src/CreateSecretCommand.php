@@ -30,8 +30,9 @@ class CreateSecretCommand extends Command
         $nonce = random_bytes(SODIUM_CRYPTO_AEAD_AES256GCM_NPUBBYTES);
         $ciphertext = sodium_crypto_aead_aes256gcm_encrypt($secret, '', $nonce, $key);
 
+        $verifier = hash_pbkdf2('sha256', $password, SWORDFISH_PEPPER, 10000);
         $encryptedSecret = bin2hex($salt . $nonce . $ciphertext);
-        $jsonPayload = json_encode(['encrypted_secret' => $encryptedSecret]);
+        $jsonPayload = json_encode(['encrypted_secret' => $encryptedSecret, 'verifier' => $verifier]);
 
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, "{$serverUrl}/api/create");
@@ -52,7 +53,6 @@ class CreateSecretCommand extends Command
         curl_close($ch);
 
         if ($httpCode === 404) {
-            $verifier = hash_pbkdf2('sha256', $password, SWORDFISH_PEPPER, 10000);
             $legacyPayload = bin2hex($salt) . '$' . $verifier . '$' . bin2hex($nonce . $ciphertext);
 
             $ch = curl_init();
@@ -91,15 +91,13 @@ class CreateSecretCommand extends Command
             return Command::FAILURE;
         }
 
-        $compoundId = $parsed['id'];
-        $secretID = explode(':', $compoundId, 2)[0];
-
         $output->writeln([
             'Secret Created',
             '==============',
-            'Secret ID: ' . $compoundId,
+            'Secret ID: ' . $parsed['id'],
+            'Password:  ' . $password,
             '',
-            'URL:       ' . $serverUrl . '/secret/' . $secretID
+            'URL:       ' . $serverUrl . '/secret/' . $parsed['id']
         ]);
 
         return Command::SUCCESS;

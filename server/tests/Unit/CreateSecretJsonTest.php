@@ -37,7 +37,7 @@ class CreateSecretJsonTest extends TestCase
 
         $handler  = ServerRoutes::createSecretJson($logger, $redis);
         $response = \Amp\Promise\wait($handler->handleRequest(
-            $this->makeRequest(json_encode(['encrypted_secret' => 'enc-payload', 'ttl' => 3600, 'max_views' => 3]))
+            $this->makeRequest(json_encode(['encrypted_secret' => 'enc-payload', 'verifier' => 'v', 'ttl' => 3600, 'max_views' => 3]))
         ));
 
         $this->assertSame(Status::CREATED, $response->getStatus());
@@ -50,18 +50,18 @@ class CreateSecretJsonTest extends TestCase
         $this->assertArrayHasKey('expires_at', $parsed);
         $this->assertArrayHasKey('max_views', $parsed);
         $this->assertSame(3, $parsed['max_views']);
-        $this->assertStringContainsString(':', $parsed['id']);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{12}$/', $parsed['id']);
     }
 
     public function testCreateSecretJsonUsesDefaultTtlAndMaxViews(): void
     {
         $logger = new Logger('test');
         $redis  = $this->makeRedisMock();
-        $redis->expects($this->exactly(4))->method('setex');
+        $redis->expects($this->exactly(3))->method('setex'); // no views key when max_views=0
 
         $handler  = ServerRoutes::createSecretJson($logger, $redis);
         $response = \Amp\Promise\wait($handler->handleRequest(
-            $this->makeRequest(json_encode(['encrypted_secret' => 'enc-payload']))
+            $this->makeRequest(json_encode(['encrypted_secret' => 'enc-payload', 'verifier' => 'v']))
         ));
 
         $this->assertSame(Status::CREATED, $response->getStatus());
@@ -69,7 +69,7 @@ class CreateSecretJsonTest extends TestCase
         $body   = \Amp\Promise\wait($response->getBody()->read());
         $parsed = json_decode($body, true);
 
-        $this->assertSame(1, $parsed['max_views']);
+        $this->assertSame(0, $parsed['max_views']);
         $this->assertGreaterThan(time(), $parsed['expires_at']);
     }
 
@@ -97,7 +97,25 @@ class CreateSecretJsonTest extends TestCase
         $handler = ServerRoutes::createSecretJson($logger, $redis);
 
         $response = \Amp\Promise\wait($handler->handleRequest(
-            $this->makeRequest(json_encode(['ttl' => 3600]))
+            $this->makeRequest(json_encode(['verifier' => 'v', 'ttl' => 3600]))
+        ));
+
+        $this->assertSame(Status::BAD_REQUEST, $response->getStatus());
+
+        $body   = \Amp\Promise\wait($response->getBody()->read());
+        $parsed = json_decode($body, true);
+        $this->assertArrayHasKey('error', $parsed);
+        $this->assertArrayHasKey('message', $parsed);
+    }
+
+    public function testCreateSecretJsonReturns400WhenVerifierMissing(): void
+    {
+        $logger  = new Logger('test');
+        $redis   = $this->makeRedisMock();
+        $handler = ServerRoutes::createSecretJson($logger, $redis);
+
+        $response = \Amp\Promise\wait($handler->handleRequest(
+            $this->makeRequest(json_encode(['encrypted_secret' => 'enc', 'ttl' => 3600]))
         ));
 
         $this->assertSame(Status::BAD_REQUEST, $response->getStatus());
@@ -115,7 +133,7 @@ class CreateSecretJsonTest extends TestCase
         $handler = ServerRoutes::createSecretJson($logger, $redis);
 
         $response = \Amp\Promise\wait($handler->handleRequest(
-            $this->makeRequest(json_encode(['encrypted_secret' => 'enc', 'ttl' => 0]))
+            $this->makeRequest(json_encode(['encrypted_secret' => 'enc', 'verifier' => 'v', 'ttl' => 0]))
         ));
 
         $this->assertSame(Status::UNPROCESSABLE_ENTITY, $response->getStatus());
@@ -134,7 +152,7 @@ class CreateSecretJsonTest extends TestCase
         $handler = ServerRoutes::createSecretJson($logger, $redis);
 
         $response = \Amp\Promise\wait($handler->handleRequest(
-            $this->makeRequest(json_encode(['encrypted_secret' => 'enc', 'ttl' => 999999]))
+            $this->makeRequest(json_encode(['encrypted_secret' => 'enc', 'verifier' => 'v', 'ttl' => 999999]))
         ));
 
         $this->assertSame(Status::UNPROCESSABLE_ENTITY, $response->getStatus());
@@ -145,14 +163,14 @@ class CreateSecretJsonTest extends TestCase
         $this->assertArrayHasKey('message', $parsed);
     }
 
-    public function testCreateSecretJsonReturns422OnMaxViewsLessThanOne(): void
+    public function testCreateSecretJsonReturns422OnNegativeMaxViews(): void
     {
         $logger  = new Logger('test');
         $redis   = $this->makeRedisMock();
         $handler = ServerRoutes::createSecretJson($logger, $redis);
 
         $response = \Amp\Promise\wait($handler->handleRequest(
-            $this->makeRequest(json_encode(['encrypted_secret' => 'enc', 'max_views' => 0]))
+            $this->makeRequest(json_encode(['encrypted_secret' => 'enc', 'verifier' => 'v', 'max_views' => -1]))
         ));
 
         $this->assertSame(Status::UNPROCESSABLE_ENTITY, $response->getStatus());

@@ -162,18 +162,19 @@ class ServerRoutes
             }
 
             $parsed = json_decode($data, true);
-            if ($parsed === null || !isset($parsed['encrypted_secret'])) {
+            if ($parsed === null || !isset($parsed['encrypted_secret'], $parsed['verifier'])) {
                 $logger->error('Unable to decode JSON create request');
                 return new Response(
                     Status::BAD_REQUEST,
                     ['content-type' => 'application/json'],
-                    json_encode(['error' => 'Bad Request', 'message' => 'Request body must be valid JSON with an encrypted_secret field.'])
+                    json_encode(['error' => 'Bad Request', 'message' => 'Request body must be valid JSON with encrypted_secret and verifier fields.'])
                 );
             }
 
             $encryptedSecret = $parsed['encrypted_secret'];
+            $verifier        = $parsed['verifier'];
             $ttl             = isset($parsed['ttl']) ? (int) $parsed['ttl'] : CreateRequest::DEFAULT_TTL;
-            $maxViews        = isset($parsed['max_views']) ? (int) $parsed['max_views'] : 1;
+            $maxViews        = isset($parsed['max_views']) ? (int) $parsed['max_views'] : 0;
 
             if ($ttl < 1 || $ttl > CreateRequest::MAX_TTL) {
                 $logger->error(sprintf('Invalid TTL %d in JSON create request', $ttl));
@@ -187,17 +188,17 @@ class ServerRoutes
                 );
             }
 
-            if ($maxViews < 1) {
+            if ($maxViews < 0) {
                 $logger->error(sprintf('Invalid max_views %d in JSON create request', $maxViews));
                 return new Response(
                     Status::UNPROCESSABLE_ENTITY,
                     ['content-type' => 'application/json'],
-                    json_encode(['error' => 'Unprocessable Entity', 'message' => 'max_views must be at least 1.'])
+                    json_encode(['error' => 'Unprocessable Entity', 'message' => 'max_views must be 0 (unlimited) or a positive integer.'])
                 );
             }
 
             try {
-                $result = $service->createJson($encryptedSecret, $ttl, $maxViews);
+                $result = $service->createJsonApi($encryptedSecret, $verifier, $ttl, $maxViews);
             } catch (\Exception $e) {
                 $logger->error('Failed to store JSON secret: ' . $e->getMessage());
                 return new Response(
@@ -207,7 +208,7 @@ class ServerRoutes
                 );
             }
 
-            $logger->info(sprintf('Created JSON secret %s', explode(':', $result['id'])[0]));
+            $logger->info(sprintf('Created JSON secret %s', $result['id']));
 
             return new Response(Status::CREATED, ['content-type' => 'application/json'], json_encode($result));
         });

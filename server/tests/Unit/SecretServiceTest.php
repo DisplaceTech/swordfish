@@ -87,14 +87,14 @@ class SecretServiceTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // createJson()
+    // createJsonApi()
     // -------------------------------------------------------------------------
 
-    public function testCreateJsonStoresFourKeysInRedis(): void
+    public function testCreateJsonApiStoresThreeKeysWhenUnlimitedViews(): void
     {
         $redis = $this->makeRedisMock();
 
-        $redis->expects($this->exactly(4))
+        $redis->expects($this->exactly(3)) // verifier, secret, expires — no views key
             ->method('setex')
             ->willReturnCallback(function (string $key, int $ttl, string $value) {
                 $this->assertGreaterThan(0, $ttl);
@@ -102,30 +102,29 @@ class SecretServiceTest extends TestCase
             });
 
         $service = new SecretService($redis);
-        $result  = $service->createJson('encrypted-payload', 3600, 5);
+        $result  = $service->createJsonApi('encrypted-payload', 'verifier', 3600, 0);
 
         $this->assertArrayHasKey('id', $result);
         $this->assertArrayHasKey('expires_at', $result);
         $this->assertArrayHasKey('max_views', $result);
-        $this->assertSame(5, $result['max_views']);
-        $this->assertStringContainsString(':', $result['id']);
+        $this->assertSame(0, $result['max_views']);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{12}$/', $result['id']);
     }
 
-    public function testCreateJsonIdContainsSecretIdAndVerifier(): void
+    public function testCreateJsonApiStoresFourKeysWhenViewsLimited(): void
     {
         $redis = $this->makeRedisMock();
-        $redis->method('setex');
+
+        $redis->expects($this->exactly(4)) // verifier, secret, expires, views
+            ->method('setex');
 
         $service = new SecretService($redis);
-        $result  = $service->createJson('encrypted-payload', 3600, 1);
+        $result  = $service->createJsonApi('encrypted-payload', 'verifier', 3600, 5);
 
-        [$secretID, $verifier] = explode(':', $result['id'], 2);
-
-        $this->assertMatchesRegularExpression('/^[0-9a-f]{12}$/', $secretID);
-        $this->assertMatchesRegularExpression('/^[0-9a-f]{32}$/', $verifier);
+        $this->assertSame(5, $result['max_views']);
     }
 
-    public function testCreateJsonExpiresAtIsApproximatelyNowPlusTtl(): void
+    public function testCreateJsonApiExpiresAtIsApproximatelyNowPlusTtl(): void
     {
         $redis = $this->makeRedisMock();
         $redis->method('setex');
@@ -133,14 +132,14 @@ class SecretServiceTest extends TestCase
         $service   = new SecretService($redis);
         $ttl       = 7200;
         $before    = time();
-        $result    = $service->createJson('encrypted-payload', $ttl, 1);
+        $result    = $service->createJsonApi('encrypted-payload', 'verifier', $ttl, 0);
         $after     = time();
 
         $this->assertGreaterThanOrEqual($before + $ttl, $result['expires_at']);
         $this->assertLessThanOrEqual($after + $ttl, $result['expires_at']);
     }
 
-    public function testCreateJsonUsesCorrectTtlsForRedisKeys(): void
+    public function testCreateJsonApiUsesCorrectTtlsForRedisKeys(): void
     {
         $redis = $this->makeRedisMock();
 
@@ -152,7 +151,7 @@ class SecretServiceTest extends TestCase
             });
 
         $service = new SecretService($redis);
-        $service->createJson('encrypted-payload', 3600, 2);
+        $service->createJsonApi('encrypted-payload', 'verifier', 3600, 2);
 
         $byPrefix = [];
         foreach ($capturedCalls as $call) {
@@ -166,7 +165,7 @@ class SecretServiceTest extends TestCase
         $this->assertSame(3600, $byPrefix['json_verifier']);
         $this->assertSame(3630, $byPrefix['json_secret']);
         $this->assertSame(3600, $byPrefix['json_views']);
-        $this->assertSame(3600, $byPrefix['json_expires']);
+        $this->assertSame(3630, $byPrefix['json_expires']);
     }
 
     // -------------------------------------------------------------------------
