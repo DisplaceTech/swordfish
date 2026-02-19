@@ -70,7 +70,8 @@ npm run lint          # run ESLint
 - **Test deps**: `@testing-library/preact`, `jsdom`, `@testing-library/jest-dom` (all devDependencies)
 - **Environment**: Default is `node` (for crypto tests using Web Crypto API); component tests use `// @vitest-environment jsdom` per-file annotation
 - **Globals**: `globals: true` in `vite.config.js` test config — required for `@testing-library/jest-dom` to extend `expect` in `setupFiles`
-- **Setup file**: `src/__tests__/setup.js` imports `@testing-library/jest-dom`; referenced via `setupFiles` in `vite.config.js`
+- **Setup file**: `src/__tests__/setup.js` imports `@testing-library/jest-dom` and stubs `window.matchMedia` (guarded with `typeof window !== 'undefined'` for node-env tests); referenced via `setupFiles` in `vite.config.js`
+- **matchMedia**: jsdom does not implement `window.matchMedia`; always add a stub in `setup.js` when components use it (e.g., `EncryptionFlow.jsx`)
 - **Mocking**: Use `vi.mock('../api', () => ({ fn: vi.fn() }))` and `vi.mock('../crypto', ...)` at module level; import mocked functions after `vi.mock()` calls; reset with `vi.clearAllMocks()` in `beforeEach`
 - **Preact events**: Use `fireEvent.input` for `<textarea>` and `<input>` (Preact uses `onInput`); use `fireEvent.change` for `<select>` (uses `onChange`); use `fireEvent.submit` on the `<form>` element
 - **Async state**: Use `screen.findBy*` or `waitFor` after async operations (form submit, API calls)
