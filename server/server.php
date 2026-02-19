@@ -33,6 +33,7 @@ Amp\Loop::run(function () {
         'host'   => getenv('REDIS_HOST'),
         'port'   => getenv('REDIS_PORT')
     ]);
+    $metrics = new Swordfish\Server\MetricsService($redisClient);
 
     $documentRoot = new DocumentRoot(__DIR__ . '/static');
     $router = new Router();
@@ -50,9 +51,9 @@ Amp\Loop::run(function () {
     /**  Server back-end API                                  **/
     /***********************************************************/
 
-    $router->addRoute('POST', '/api/create', ServerRoutes::createSecret($logger, $redisClient));
+    $router->addRoute('POST', '/api/create', ServerRoutes::createSecret($logger, $redisClient, $metrics));
     $router->addRoute('POST', '/create', ServerRoutes::redirectCreate($logger));
-    $router->addRoute('POST', '/api/retrieve', ServerRoutes::retrieveSecretJson($logger, $redisClient));
+    $router->addRoute('POST', '/api/retrieve', ServerRoutes::retrieveSecretJson($logger, $redisClient, $metrics));
     $router->addRoute('POST', '/retrieve', ServerRoutes::redirectRetrieve($logger));
 
     $router->setFallback(ServerRoutes::spaFallback($logger, $documentRoot));
