@@ -34,32 +34,54 @@ class CreateSecretCommand extends Command
 
         $verifier = hash_pbkdf2('sha256', $password, SWORDFISH_PEPPER, 10000);
 
-        $payload = bin2hex($salt) . '$' . $verifier . '$' . $encrypted;
+        $encryptedSecret = bin2hex($salt) . '$' . $verifier . '$' . $encrypted;
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, "{$serverUrl}/create");
-        curl_setopt($ch, CURLOPT_USERAGENT, 'Swordfish CLI');
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: text/plain']);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-
-        $response = curl_exec($ch);
+        $response = $this->httpPost("{$serverUrl}/api/create", ['encrypted_secret' => $encryptedSecret]);
 
         if ($response === false) {
-            $output->writeln('Network error: ' . curl_error($ch));
+            $output->writeln('Network error: could not reach server');
             return Command::FAILURE;
+        }
+
+        $parsed = json_decode($response, true);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            if (isset($parsed['error'])) {
+                $output->writeln('Server error: ' . ($parsed['message'] ?? $parsed['error']));
+                return Command::FAILURE;
+            }
+            if (!isset($parsed['id'])) {
+                $output->writeln('Unexpected server response');
+                return Command::FAILURE;
+            }
+            $secretId = $parsed['id'];
+        } else {
+            // v1 fallback: plain-text response is the secret ID
+            $secretId = $response;
         }
 
         $output->writeln([
             'Secret Created',
             '==============',
-            'Secret ID: ' . $response,
+            'Secret ID: ' . $secretId,
             'Password:  ' . $password,
             '',
-            'URL:       ' . $serverUrl . '/secret/' . $response
+            'URL:       ' . $serverUrl . '/secret/' . $secretId
         ]);
 
         return Command::SUCCESS;
+    }
+
+    protected function httpPost(string $url, array $data): string|false
+    {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Swordfish CLI');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        $response = curl_exec($ch);
+        curl_close($ch);
+        return $response;
     }
 }
