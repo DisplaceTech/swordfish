@@ -113,7 +113,7 @@ class ServerRoutes
                 return new Response(
                     Status::SERVICE_UNAVAILABLE,
                     ['content-type' => 'application/json'],
-                    json_encode(['status' => 'error', 'detail' => 'redis unreachable'])
+                    json_encode(['status' => 'error', 'message' => $e->getMessage()])
                 );
             }
         });

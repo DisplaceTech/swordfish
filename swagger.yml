@@ -79,9 +79,9 @@ paths:
               status:
                 type: "string"
                 example: "error"
-              detail:
+              message:
                 type: "string"
-                example: "redis unreachable"
+                example: "Connection refused [tcp://redis:6379]"
 
   /api/create:
     post:
