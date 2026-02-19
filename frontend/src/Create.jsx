@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks'
 import { encrypt } from './crypto'
 import { createSecret } from './api'
+import EncryptionFlow from './EncryptionFlow'
 
 const TTL_OPTIONS = [
   { label: '1 hour',   value: 3600 },
@@ -134,6 +135,8 @@ export default function Create() {
         Your secret is encrypted in your browser before it ever reaches the server.
         Share the link — only someone with the passphrase can read it.
       </p>
+
+      <EncryptionFlow />
 
       <form onSubmit={handleSubmit} noValidate>
         <div className="flex flex-col gap-5 rounded-xl border border-gray-800 bg-gray-900 p-6">
