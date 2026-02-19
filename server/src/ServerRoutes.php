@@ -55,6 +55,19 @@ class ServerRoutes
     }
 
     /**
+     * Create a callback that issues a 307 Temporary Redirect to the given location.
+     *
+     * @param string $location
+     * @return CallableRequestHandler
+     */
+    public static function redirect(string $location): CallableRequestHandler
+    {
+        return new CallableRequestHandler(function() use ($location): Response {
+            return new Response(Status::TEMPORARY_REDIRECT, ['location' => $location], '');
+        });
+    }
+
+    /**
      * Process a secret creation request and attempt to create the secret.
      *
      * @param Logger $logger
