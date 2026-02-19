@@ -95,7 +95,9 @@ paths:
       parameters:
         - in: "body"
           name: "body"
-          description: "Serialized secret to store in the server"
+          description: |
+            Serialized secret to store in the server. Format: hex(salt)$hex(verifier)$hex(secret)[$ttl]
+            The optional TTL field specifies the secret lifetime in seconds (1–604800). Defaults to 86400.
           required: true
           schema:
             type: "string"
@@ -106,6 +108,8 @@ paths:
           description: "Bad Request"
         "413":
           description: "Payload Too Large"
+        "422":
+          description: "Unprocessable Entity — TTL out of range"
   /api/retrieve:
     post:
       summary: "Retrieve a secret from the datastore."

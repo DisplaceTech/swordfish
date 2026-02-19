@@ -4,15 +4,20 @@ namespace Swordfish\Server;
 
 class CreateRequest
 {
+    const DEFAULT_TTL = 86400;
+    const MAX_TTL = 604800;
+
     protected string $salt;
     protected string $verifier;
     protected string $secret;
+    protected int $ttl;
 
-    public function __construct(string $salt, string $verifier, string $secret)
+    public function __construct(string $salt, string $verifier, string $secret, int $ttl = self::DEFAULT_TTL)
     {
         $this->salt = $salt;
         $this->verifier = $verifier;
         $this->secret = $secret;
+        $this->ttl = $ttl;
     }
 
     /**
@@ -36,6 +41,16 @@ class CreateRequest
     }
 
     /**
+     * Return the requested TTL in seconds for the secret.
+     *
+     * @return int
+     */
+    public function ttl(): int
+    {
+        return $this->ttl;
+    }
+
+    /**
      * Deserialize a request and create a new object from it.
      *
      * @param string $raw
@@ -48,7 +63,7 @@ class CreateRequest
     {
        $parts = explode('$', $raw);
 
-       if (sizeof($parts) !== 3) {
+       if (sizeof($parts) < 3 || sizeof($parts) > 4) {
            throw new \Exception('Invalid serialized request!');
        }
 
@@ -64,6 +79,14 @@ class CreateRequest
            throw new \Exception('Invalid verifier length!');
        }
 
-       return new self($salt, $verifier, $secret);
+       $ttl = self::DEFAULT_TTL;
+       if (sizeof($parts) === 4) {
+           $ttl = (int) $parts[3];
+           if ($ttl < 1 || $ttl > self::MAX_TTL) {
+               throw new \InvalidArgumentException(sprintf('TTL must be between 1 and %d seconds.', self::MAX_TTL));
+           }
+       }
+
+       return new self($salt, $verifier, $secret, $ttl);
     }
 }
