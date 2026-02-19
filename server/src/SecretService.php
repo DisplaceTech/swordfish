@@ -6,6 +6,49 @@ use Predis\Client;
 
 class SecretService
 {
+    /**
+     * Atomic Lua script for view-limited secret retrieval.
+     *
+     * KEYS: [1]=viewsKey, [2]=secretKey, [3]=verifierKey, [4]=expiresKey
+     *
+     * Returns a three-element array:
+     *   [0] encrypted_secret (string) or nil when not found / views exhausted
+     *   [1] expires_at timestamp string or nil
+     *   [2] views_remaining as a string, or false (nil) for unlimited secrets
+     *
+     * The entire read-decrement-delete sequence executes atomically, preventing
+     * two concurrent requests from both retrieving the last available view.
+     */
+    private const LUA_RETRIEVE = <<<'LUA'
+local viewsKey    = KEYS[1]
+local secretKey   = KEYS[2]
+local verifierKey = KEYS[3]
+local expiresKey  = KEYS[4]
+
+local views = redis.call('GET', viewsKey)
+
+if views == false then
+    local secret  = redis.call('GET', secretKey)
+    local expires = redis.call('GET', expiresKey)
+    return {secret, expires, false}
+end
+
+local newViews = redis.call('DECR', viewsKey)
+
+if newViews < 0 then
+    return {false, false, false}
+end
+
+local secret  = redis.call('GET', secretKey)
+local expires = redis.call('GET', expiresKey)
+
+if newViews == 0 then
+    redis.call('DEL', secretKey, verifierKey, viewsKey, expiresKey)
+end
+
+return {secret, expires, tostring(newViews)}
+LUA;
+
     public function __construct(private Client $redis) {}
 
     /**
@@ -124,24 +167,16 @@ class SecretService
             throw new InvalidVerifierException(sprintf('Invalid verifier for JSON secret %s.', $secretID));
         }
 
-        $encryptedSecret = $this->redis->get($secretKey);
+        /** @var array{0: string|null, 1: string|null, 2: string|null} $result */
+        $result = $this->redis->eval(self::LUA_RETRIEVE, 4, $viewsKey, $secretKey, $verifierKey, $expiresKey);
+
+        $encryptedSecret = $result[0] ?? null;
         if ($encryptedSecret === null) {
-            throw new SecretNotFoundException(sprintf('JSON secret %s not found.', $secretID));
+            throw new SecretNotFoundException(sprintf('JSON secret %s not found or views exhausted.', $secretID));
         }
 
-        $expiresAt = (int) $this->redis->get($expiresKey);
-
-        $viewsRaw = $this->redis->get($viewsKey);
-        if ($viewsRaw === null) {
-            // Unlimited views — no counter to decrement
-            $viewsRemaining = null;
-        } else {
-            $viewsAfter = (int) $this->redis->decr($viewsKey);
-            if ($viewsAfter <= 0) {
-                $this->redis->del($secretKey, $verifierKey, $viewsKey, $expiresKey);
-            }
-            $viewsRemaining = max(0, $viewsAfter);
-        }
+        $expiresAt      = (int) ($result[1] ?? 0);
+        $viewsRemaining = isset($result[2]) ? max(0, (int) $result[2]) : null;
 
         return [
             'encrypted_secret' => $encryptedSecret,
