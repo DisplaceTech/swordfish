@@ -50,11 +50,12 @@ Amp\Loop::run(function () {
     /**  Server back-end API                                  **/
     /***********************************************************/
 
-    $router->addRoute('POST', '/create', ServerRoutes::createSecret($logger, $redisClient));
-    $router->addRoute('POST', '/retrieve', ServerRoutes::redirectRetrieve($logger));
+    $router->addRoute('POST', '/api/create', ServerRoutes::createSecret($logger, $redisClient));
+    $router->addRoute('POST', '/create', ServerRoutes::redirectCreate($logger));
+    $router->addRoute('POST', '/retrieve', ServerRoutes::retrieveSecret($logger, $redisClient));
     $router->addRoute('POST', '/api/retrieve', ServerRoutes::retrieveSecretJson($logger, $redisClient));
 
-    $router->setFallback($documentRoot);
+    $router->setFallback(ServerRoutes::spaFallback($logger, $documentRoot));
 
     $server = new Server($servers, $router, $logger);
     yield $server->start();

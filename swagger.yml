@@ -83,6 +83,25 @@ paths:
                 type: "string"
                 example: "Connection refused [tcp://redis:6379]"
 
+  /create:
+    post:
+      summary: "Create a new secret (deprecated — redirects to /api/create)."
+      tags:
+        - "api"
+      consumes:
+        - "text/plain"
+      produces:
+        - "text/plain"
+      parameters:
+        - in: "body"
+          name: "body"
+          description: "Serialized secret to store in the server."
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "307":
+          description: "Temporary Redirect to /api/create"
   /api/create:
     post:
       summary: "Create a new secret in the datastore."

@@ -4,8 +4,11 @@
          bootstrap="vendor/autoload.php"
          colors="true">
     <testsuites>
-        <testsuite name="Swordfish Server">
-            <directory>tests</directory>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
         </testsuite>
     </testsuites>
     <source>
