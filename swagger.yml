@@ -127,28 +127,76 @@ paths:
       tags:
         - "api"
       consumes:
-        - "text/plain"
+        - "application/json"
       produces:
-        - "text/plain"
+        - "application/json"
       parameters:
         - in: "body"
           name: "body"
-          description: |
-            Serialized secret to store in the server. Format: hex(salt)$hex(verifier)$hex(secret)[$ttl[$max_views]]
-            The optional TTL field specifies the secret lifetime in seconds (1–604800). Defaults to 86400.
-            The optional max_views field limits how many times the secret may be retrieved. Allowed values: 1, 3, 5, 10, or 0 (unlimited, default).
+          description: "JSON secret creation request"
           required: true
           schema:
-            type: "string"
+            type: "object"
+            required:
+              - "encrypted_secret"
+            properties:
+              encrypted_secret:
+                type: "string"
+                description: "Client-side encrypted payload: hex(salt)$hex(verifier)$hex(secret)"
+              ttl:
+                type: "integer"
+                description: "Secret lifetime in seconds (1–604800). Defaults to 86400."
+              max_views:
+                type: "integer"
+                description: "Maximum retrieval count. Allowed values: 0 (unlimited), 1, 3, 5, 10. Defaults to 0."
       responses:
         "201":
           description: "Created"
+          schema:
+            type: "object"
+            properties:
+              id:
+                type: "string"
+                description: "The generated secret ID"
+              expires_at:
+                type: "integer"
+                description: "Unix timestamp when the secret expires"
+              max_views:
+                type: "integer"
+                description: "Maximum retrieval count (0 = unlimited)"
         "400":
           description: "Bad Request"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+                example: "Bad Request"
+              message:
+                type: "string"
+                example: "Invalid or missing JSON fields"
         "413":
           description: "Payload Too Large"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+                example: "Payload Too Large"
+              message:
+                type: "string"
+                example: "Request body exceeds maximum allowed size"
         "422":
           description: "Unprocessable Entity — TTL out of range or invalid max_views"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+                example: "Unprocessable Entity"
+              message:
+                type: "string"
+                example: "TTL must be between 1 and 604800 seconds."
   /api/retrieve:
     post:
       summary: "Retrieve a secret from the datastore."
@@ -199,12 +247,18 @@ paths:
               error:
                 type: "string"
                 example: "Bad Request"
+              message:
+                type: "string"
+                example: "Invalid or missing JSON fields"
         "401":
           description: "Unauthorized"
           schema:
             type: "object"
             properties:
               error:
+                type: "string"
+                example: "Unauthorized"
+              message:
                 type: "string"
                 example: "Invalid authorization"
         "404":
@@ -214,4 +268,18 @@ paths:
             properties:
               error:
                 type: "string"
+                example: "Not Found"
+              message:
+                type: "string"
                 example: "Not found or expired"
+        "429":
+          description: "Too Many Requests"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+                example: "Too Many Requests"
+              message:
+                type: "string"
+                example: "Rate limit exceeded; try again later"

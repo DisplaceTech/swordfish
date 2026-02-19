@@ -100,7 +100,10 @@ class ServerRoutes
     }
 
     /**
-     * Process a secret creation request and attempt to create the secret.
+     * Process a JSON secret creation request and return the new secret metadata.
+     *
+     * Accepts: {"encrypted_secret": "hex(salt)$hex(verifier)$hex(secret)", "ttl": N, "max_views": N}
+     * Returns: {"id": "...", "expires_at": T, "max_views": N}
      *
      * @param Logger $logger
      * @param Client $redisClient
@@ -113,23 +116,41 @@ class ServerRoutes
             $data = yield $request->getBody()->read();
             if (strlen($data) > 100 * 1000) {
                 $logger->error('Message payload too large!');
-                return new Response(Status::PAYLOAD_TOO_LARGE, ['content-type' => 'text/plain'], 'Payload Too Large');
+                return new Response(
+                    Status::PAYLOAD_TOO_LARGE,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'Payload Too Large', 'message' => 'Request body exceeds maximum allowed size'])
+                );
             }
 
             try {
-                $secretRequest = CreateRequest::fromString($data);
+                $secretRequest = CreateRequest::fromJson($data);
             } catch (\InvalidArgumentException $e) {
                 $logger->error('Invalid parameter in creation request: ' . $e->getMessage());
-                return new Response(Status::UNPROCESSABLE_ENTITY, ['content-type' => 'application/json'], json_encode(['error' => $e->getMessage()]));
+                return new Response(
+                    Status::UNPROCESSABLE_ENTITY,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'Unprocessable Entity', 'message' => $e->getMessage()])
+                );
             } catch (\Exception $e) {
-                $logger->error('Unable to decode creation request');
-                return new Response(Status::BAD_REQUEST, ['content-type' => 'text/plain'], 'Bad Request');
+                $logger->error('Unable to decode creation request: ' . $e->getMessage());
+                return new Response(
+                    Status::BAD_REQUEST,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'Bad Request', 'message' => 'Invalid or missing JSON fields'])
+                );
             }
 
-            $secretID = $service->createJson($secretRequest);
-            $logger->info(sprintf('Created secret %s', $secretID));
+            $secretID  = $service->createJson($secretRequest);
+            $expiresAt = time() + $secretRequest->ttl();
+            $maxViews  = $secretRequest->maxViews();
+            $logger->info(sprintf('Created JSON secret %s', $secretID));
 
-            return new Response(Status::CREATED, ['content-type' => 'text/plain'], $secretID);
+            return new Response(
+                Status::CREATED,
+                ['content-type' => 'application/json'],
+                json_encode(['id' => $secretID, 'expires_at' => $expiresAt, 'max_views' => $maxViews])
+            );
         });
     }
 
@@ -224,7 +245,7 @@ class ServerRoutes
                 return new Response(
                     Status::TOO_MANY_REQUESTS,
                     ['content-type' => 'application/json'],
-                    json_encode(['error' => 'Too Many Requests'])
+                    json_encode(['error' => 'Too Many Requests', 'message' => 'Rate limit exceeded; try again later'])
                 );
             }
 
@@ -236,7 +257,7 @@ class ServerRoutes
                 return new Response(
                     Status::BAD_REQUEST,
                     ['content-type' => 'application/json'],
-                    json_encode(['error' => 'Bad Request'])
+                    json_encode(['error' => 'Bad Request', 'message' => 'Invalid or missing JSON fields'])
                 );
             }
 
@@ -250,14 +271,14 @@ class ServerRoutes
                 return new Response(
                     Status::UNAUTHORIZED,
                     ['content-type' => 'application/json'],
-                    json_encode(['error' => 'Invalid authorization'])
+                    json_encode(['error' => 'Unauthorized', 'message' => 'Invalid authorization'])
                 );
             } catch (SecretNotFoundException $e) {
                 $logger->error(sprintf('JSON secret %s was requested but was not found.', $secretID));
                 return new Response(
                     Status::NOT_FOUND,
                     ['content-type' => 'application/json'],
-                    json_encode(['error' => 'Not found or expired'])
+                    json_encode(['error' => 'Not Found', 'message' => 'Not found or expired'])
                 );
             }
 

@@ -46,7 +46,9 @@ class RetrieveRateLimitTest extends TestCase
         $this->assertSame('application/json', $response->getHeader('content-type'));
 
         $body = \Amp\Promise\wait($response->getBody()->read());
-        $this->assertSame(['error' => 'Too Many Requests'], json_decode($body, true));
+        $decoded = json_decode($body, true);
+        $this->assertSame('Too Many Requests', $decoded['error']);
+        $this->assertArrayHasKey('message', $decoded);
     }
 
     public function testReturns429AtLimitPlusOne(): void

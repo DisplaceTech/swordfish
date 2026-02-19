@@ -104,4 +104,79 @@ class CreateRequestTest extends TestCase
         $this->expectException(\Exception::class);
         CreateRequest::fromString("{$salt}\${$verifier}\${$secret}\$3600\$5\$extra");
     }
+
+    // -------------------------------------------------------------------------
+    // fromJson()
+    // -------------------------------------------------------------------------
+
+    private function validEncryptedSecret(): string
+    {
+        return bin2hex(str_repeat('a', 16)) . '$' . bin2hex(str_repeat('b', 32)) . '$' . bin2hex('mysecret');
+    }
+
+    public function testFromJsonParsesValidRequest(): void
+    {
+        $json = json_encode([
+            'encrypted_secret' => $this->validEncryptedSecret(),
+            'ttl'              => 3600,
+            'max_views'        => 5,
+        ]);
+
+        $request = CreateRequest::fromJson($json);
+
+        $this->assertSame(3600, $request->ttl());
+        $this->assertSame(5, $request->maxViews());
+    }
+
+    public function testFromJsonDefaultsTtlAndMaxViews(): void
+    {
+        $json = json_encode(['encrypted_secret' => $this->validEncryptedSecret()]);
+
+        $request = CreateRequest::fromJson($json);
+
+        $this->assertSame(CreateRequest::DEFAULT_TTL, $request->ttl());
+        $this->assertSame(0, $request->maxViews());
+    }
+
+    public function testFromJsonThrowsOnMissingEncryptedSecret(): void
+    {
+        $this->expectException(\Exception::class);
+        CreateRequest::fromJson(json_encode(['ttl' => 3600]));
+    }
+
+    public function testFromJsonThrowsOnInvalidJson(): void
+    {
+        $this->expectException(\Exception::class);
+        CreateRequest::fromJson('not-json');
+    }
+
+    public function testFromJsonThrowsOnInvalidTtl(): void
+    {
+        $json = json_encode([
+            'encrypted_secret' => $this->validEncryptedSecret(),
+            'ttl'              => 9999999,
+        ]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        CreateRequest::fromJson($json);
+    }
+
+    public function testFromJsonThrowsOnInvalidMaxViews(): void
+    {
+        $json = json_encode([
+            'encrypted_secret' => $this->validEncryptedSecret(),
+            'max_views'        => 7,
+        ]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        CreateRequest::fromJson($json);
+    }
+
+    public function testFromJsonThrowsOnWrongEncryptedSecretSegmentCount(): void
+    {
+        $json = json_encode(['encrypted_secret' => 'onlyone']);
+
+        $this->expectException(\Exception::class);
+        CreateRequest::fromJson($json);
+    }
 }
