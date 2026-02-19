@@ -1,171 +1,346 @@
 # Project Swordfish
 
-A secure, anonymous secret sharing application that allows users to share sensitive information through time-limited, encrypted secrets. The project consists of two main components:
+A secure, anonymous secret-sharing application. Secrets are encrypted entirely in the browser (or CLI) before reaching the server — the server stores only ciphertext and never sees a plaintext secret or passphrase.
 
-1. A PHP-based server application that:
-   - Provides a web interface for creating and retrieving secrets
-   - Handles encryption/decryption of secrets
-   - Uses Redis for temporary secret storage (24-hour expiration)
-   - Built with Amphp for async PHP processing
+## v2 Features
 
-2. A CLI tool for programmatic interaction with the server that:
-   - Creates encrypted secrets
-   - Retrieves and decrypts secrets
-   - Uses local encryption/decryption for enhanced security
+- **Preact SPA** — dark-themed single-page application served by the PHP server; no separate static host required
+- **JSON API** — `POST /api/create` and `POST /api/retrieve` with structured JSON request/response bodies
+- **Configurable TTL** — secrets expire after 1 hour, 6 hours, 24 hours, 3 days, or 7 days
+- **View limits** — optionally restrict a secret to 1, 3, 5, or 10 retrievals; enforced atomically via a Redis Lua script
+- **Health endpoint** — `GET /health` checks Redis connectivity; used by Kubernetes liveness and readiness probes
+- **Rate limiting** — `/api/retrieve` is limited to 10 requests per minute per IP; responses include `X-RateLimit-*` headers
+- **Metrics** — creation and retrieval counts and byte totals are recorded per hour in Redis (90-day retention)
+- **Legacy redirects** — `POST /create` and `POST /retrieve` issue `308 Permanent Redirect` to the `/api/*` equivalents
 
-## Security Features
+## Security
 
-- Client-side encryption/decryption (both in browser and CLI)
-- AES-256-GCM encryption
-- PBKDF2 key derivation
-- 24-hour secret expiration
-- Password verification without storing the actual password
-- Secrets are never stored in plaintext
+All cryptography runs client-side using the Web Crypto API (browser) or libsodium (CLI):
+
+| Primitive | Usage |
+|---|---|
+| AES-GCM-256 | Secret encryption/decryption |
+| PBKDF2-SHA-256 (10 000 iterations) | Key derivation from passphrase + random salt |
+| PBKDF2-SHA-256 (10 000 iterations, fixed pepper) | Verifier derivation for server-side authentication |
+| bcrypt | Server-side hashing of the verifier before storage |
+
+The server stores only the encrypted payload and a bcrypt-hashed verifier. The plaintext secret and the passphrase never leave the client.
 
 ## Prerequisites
 
-- Docker and Docker Compose (for local development)
-- Make
-- PHP 8.4+ (for local development)
-- Composer (for local development)
-- Kubernetes 1.19+ (for production deployment)
-- Helm 3.0+ (for production deployment)
+| Tool | Purpose |
+|---|---|
+| Docker + Docker Compose | Running the server and Redis locally |
+| Make | Convenience targets |
+| PHP 8.4+ | Running the server or CLI outside Docker |
+| Composer | Installing PHP dependencies |
+| Node.js 20+ | Building the frontend SPA |
+| Kubernetes 1.19+ | Production deployment |
+| Helm 3.0+ | Kubernetes chart management |
 
 ## Development Setup
 
-The project uses Make for common development tasks. Here are the available commands:
-
-### Server Component
+### Quick start (Docker)
 
 ```bash
-# Install server dependencies locally
-make server-install
-
-# Build the server container
-make server-build
-
-# Start the server (builds if needed)
+# Build the server image and start the server + Redis
 make server-up
 
-# Stop the server
+# Stop all containers
 make server-down
 ```
 
-### CLI Component
+The server listens on `http://localhost:8080` by default.
+
+### Server (PHP)
 
 ```bash
-# Install CLI dependencies locally
+# Install Composer dependencies locally (via Docker, no local PHP required)
+make server-install
+
+# Build the server container image only
+make server-build
+```
+
+### Frontend (Node.js)
+
+The Preact SPA lives in `frontend/` and is built with Vite. Build output lands in `server/static/dist/` and is committed to the repository.
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start the Vite dev server (proxies API calls to the PHP server)
+npm run dev
+
+# Build for production (output → server/static/dist/)
+npm run build
+
+# Run ESLint
+npm run lint
+
+# Run Vitest unit tests
+npm test
+```
+
+> **Note:** Always run `npm run build` after frontend changes and commit the updated `server/static/dist/` directory.
+
+### CLI
+
+```bash
+# Install Composer dependencies locally (via Docker, no local PHP required)
 make cli-install
 ```
 
-## Deployment Options
+### Running tests
 
-### Docker Configuration
-
-The server runs two containers:
-1. PHP Server (Amphp-based HTTP server)
-   - Exposes port 8080
-   - Handles web interface and API endpoints
-   - Configurable through environment variables:
-     - `SERVER_PORT`: HTTP server port (default: 8080)
-     - `REDIS_HOST`: Redis server hostname
-     - `REDIS_PORT`: Redis server port
-
-2. Redis Server
-   - Stores encrypted secrets
-   - Handles automatic expiration
-   - Exposes port 6379 (for internal use)
-
-#### Development Mode
-
-For development, the server component includes a `docker-compose.dev.yml` that:
-- Mounts the local `/server` directory into the container
-- Enables hot-reloading of PHP files
-- Uses the `swordfish:local` image tag
-
-### Kubernetes Deployment
-
-The application can be deployed to Kubernetes using the provided Helm chart.
-
-#### Prerequisites
-- Kubernetes cluster 1.19+
-- Helm 3.0+
-- Ingress controller (optional, for ingress support)
-- GitHub Personal Access Token with `read:packages` scope (for pulling images)
-
-#### Installation
-
-1. Create the namespace:
+**PHP (server):**
 ```bash
-kubectl create namespace swordfish
+cd server
+composer test
 ```
 
-2. Configure GitHub Container Registry Authentication:
-
-The server image is hosted on GitHub Container Registry (ghcr.io) and requires authentication to pull. You have two options:
-
-Option 1: Let Helm create the pull secret (recommended):
+**JavaScript (frontend):**
 ```bash
+cd frontend
+npm test
+```
+
+## API Reference
+
+The full OpenAPI 2.0 specification is in [`swagger.yml`](swagger.yml).
+
+### Web interface
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/` | Secret creation page (SPA) |
+| `GET` | `/secret` | Secret retrieval page (SPA) |
+| `GET` | `/secret/{secretId}` | Pre-populated retrieval page (SPA) |
+
+### Backend API
+
+#### `GET /health`
+
+Returns Redis connectivity status. Used by Kubernetes probes.
+
+**200 OK — Redis reachable:**
+```json
+{ "status": "ok" }
+```
+
+**503 Service Unavailable — Redis unreachable:**
+```json
+{ "status": "error", "message": "Connection refused [tcp://redis:6379]" }
+```
+
+---
+
+#### `POST /api/create`
+
+Create a new secret. The request body must be JSON.
+
+**Request:**
+```json
+{
+  "encrypted_secret": "<hex(salt)>$<hex(verifier)>$<hex(nonce+ciphertext)>",
+  "ttl": 86400,
+  "max_views": 1
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `encrypted_secret` | string | ✓ | Client-side encrypted payload in `hex(salt)$hex(verifier)$hex(nonce+ciphertext)` format |
+| `ttl` | integer | | Lifetime in seconds. Allowed: `3600`, `21600`, `86400`, `259200`, `604800`. Default: `86400` |
+| `max_views` | integer | | Maximum retrieval count. Allowed: `0` (unlimited), `1`, `3`, `5`, `10`. Default: `0` |
+
+**201 Created:**
+```json
+{
+  "id": "a1b2c3d4e5f6",
+  "expires_at": 1735689600,
+  "max_views": 1
+}
+```
+
+**400 Bad Request** — malformed JSON  
+**413 Payload Too Large** — body exceeds 100 KB  
+**422 Unprocessable Entity** — disallowed `ttl` or `max_views` value
+
+---
+
+#### `POST /api/retrieve`
+
+Retrieve a secret. Rate-limited to **10 requests per minute per IP**. All responses include `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers.
+
+**Request:**
+```json
+{
+  "id": "a1b2c3d4e5f6",
+  "verifier": "<hex-encoded PBKDF2 verifier>"
+}
+```
+
+**200 OK:**
+```json
+{
+  "encrypted_secret": "<hex(salt+nonce+ciphertext)>",
+  "views_remaining": 0,
+  "expires_at": 1735689600
+}
+```
+
+`views_remaining` is `null` for unlimited secrets. When it reaches `0`, all keys for the secret are deleted atomically.
+
+**400 Bad Request** — malformed JSON  
+**401 Unauthorized** — verifier does not match  
+**404 Not Found** — secret not found or expired  
+**429 Too Many Requests** — rate limit exceeded
+
+---
+
+#### Legacy redirects
+
+`POST /create` and `POST /retrieve` both respond with `308 Permanent Redirect` to `/api/create` and `/api/retrieve` respectively. Update any integrations to use the `/api/*` paths directly.
+
+## CLI Usage
+
+The CLI tool is a Symfony Console application located in `cli/`. It requires PHP 8.4+ with the `sodium` and `curl` extensions.
+
+### `secret:create`
+
+Encrypt a secret locally and store it on the server.
+
+```bash
+php cli/cli.php secret:create <secret> <password>
+```
+
+**Arguments:**
+
+| Argument | Description |
+|---|---|
+| `secret` | Plaintext secret to protect |
+| `password` | Passphrase used to encrypt the secret |
+
+**Example:**
+```bash
+php cli/cli.php secret:create "my API key: sk-abc123" "correct horse battery staple"
+```
+
+```
+Secret Created
+==============
+Secret ID: a1b2c3d4e5f6
+Password:  correct horse battery staple
+
+URL:       https://swordfish.displace.tech/secret/a1b2c3d4e5f6
+```
+
+### `secret:retrieve`
+
+Authenticate with the server, retrieve the ciphertext, and decrypt it locally.
+
+```bash
+php cli/cli.php secret:retrieve <secret-id> <password>
+```
+
+**Arguments:**
+
+| Argument | Description |
+|---|---|
+| `secret-id` | ID of the secret to retrieve |
+| `password` | Passphrase used when the secret was created |
+
+**Example:**
+```bash
+php cli/cli.php secret:retrieve a1b2c3d4e5f6 "correct horse battery staple"
+```
+
+```
+Secret Decrypted!
+==============
+my API key: sk-abc123
+```
+
+### Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `SWORDFISH_URL` | `https://swordfish.displace.tech` | Base URL of the Swordfish server |
+
+## Environment Variables (server)
+
+| Variable | Default | Description |
+|---|---|---|
+| `SERVER_PORT` | `8080` | HTTP listen port |
+| `REDIS_HOST` | `redis` | Redis hostname |
+| `REDIS_PORT` | `6379` | Redis port |
+
+## Docker
+
+The server image is a multi-stage build: Composer installs dependencies in a `composer:latest` builder stage, then the runtime stage uses `php:8.4-cli` with the `redis` PECL extension and `pcntl`.
+
+```bash
+# Build the image locally
+make server-build
+
+# Start server + Redis with dev volume mount (hot-reload)
+make server-up
+
+# Stop containers
+make server-down
+```
+
+The `docker-compose.dev.yml` overlay mounts the local `server/` directory into the container so PHP file changes take effect without rebuilding the image.
+
+## Helm Deployment
+
+The application ships with a Helm chart at `helm/swordfish/`. It deploys the PHP server and a Redis subchart, with optional ingress and Keel-based auto-update support.
+
+### Installation
+
+```bash
+kubectl create namespace swordfish
+
 helm install swordfish ./helm/swordfish -n swordfish \
   --set server.imagePullSecrets.create=true \
   --set server.imagePullSecrets.github.username=YOUR_GITHUB_USERNAME \
   --set server.imagePullSecrets.github.token=YOUR_GITHUB_PAT
 ```
 
-Option 2: Create a pull secret manually and reference it:
+Alternatively, create the pull secret manually and reference it:
+
 ```bash
-# Create the secret manually
 kubectl create secret docker-registry ghcr-auth \
   --docker-server=ghcr.io \
   --docker-username=YOUR_GITHUB_USERNAME \
   --docker-password=YOUR_GITHUB_PAT \
   -n swordfish
 
-# Use the existing secret in Helm
 helm install swordfish ./helm/swordfish -n swordfish \
   --set server.imagePullSecrets.name=ghcr-auth
 ```
 
-For production deployments, you can include the authentication in your values file:
-```yaml
-# values.yaml
-server:
-  imagePullSecrets:
-    create: true
-    github:
-      username: YOUR_GITHUB_USERNAME
-      token: YOUR_GITHUB_PAT
-  
-  # Other configuration...
-  image:
-    repository: ghcr.io/displacetech/swordfish/server
-    tag: "latest"    # or specific SHA
-```
-
-Then install with:
-```bash
-helm install swordfish ./helm/swordfish -n swordfish -f values.yaml
-```
-
-#### Configuration
-
-The following table lists the configurable parameters for the Helm chart:
+### Configuration
 
 | Parameter | Description | Default |
-|-----------|-------------|---------|
+|---|---|---|
 | `server.replicaCount` | Number of server replicas | `1` |
 | `server.image.repository` | Server image repository | `ghcr.io/displacetech/swordfish/server` |
 | `server.image.tag` | Server image tag | `latest` |
 | `server.image.sha` | Optional SHA override for the tag | `""` |
-| `server.imagePullSecrets.create` | Create a new pull secret | `false` |
-| `server.imagePullSecrets.name` | Name of existing pull secret to use | `""` |
-| `server.imagePullSecrets.github.username` | GitHub username for pull secret | `""` |
-| `server.imagePullSecrets.github.token` | GitHub PAT for pull secret | `""` |
+| `server.imagePullSecrets.create` | Create a pull secret from provided credentials | `false` |
+| `server.imagePullSecrets.name` | Name of an existing pull secret to use | `""` |
+| `server.imagePullSecrets.github.username` | GitHub username for the pull secret | `""` |
+| `server.imagePullSecrets.github.token` | GitHub PAT for the pull secret | `""` |
 | `server.service.type` | Kubernetes service type | `ClusterIP` |
 | `server.service.port` | Service port | `8080` |
-| `keel.policy` | Keel update policy (`force`, `semver`, `glob`) | `force` |
+| `keel.policy` | Keel update policy (`force`, `semver`, `glob`, `none`) | `force` |
 | `keel.trigger` | Keel trigger type (`poll`, `pubsub`) | `poll` |
-| `keel.pollSchedule` | Poll schedule (cron or `@every` syntax); used when trigger is `poll` | `@every 5m` |
+| `keel.pollSchedule` | Poll schedule (cron or `@every` syntax) | `@every 5m` |
 | `keel.matchTag` | Only update when the new image tag matches the deployed tag | `true` |
 | `redis.architecture` | Redis architecture | `standalone` |
 | `redis.auth.enabled` | Enable Redis authentication | `false` |
@@ -173,24 +348,20 @@ The following table lists the configurable parameters for the Helm chart:
 | `ingress.className` | Ingress class name | `""` |
 | `ingress.hosts` | Ingress hosts configuration | `[{host: swordfish.local, paths: [{path: /, pathType: Prefix}]}]` |
 
-Example configuration with custom values and authentication:
+**Example `values.yaml` with ingress and TLS:**
 
 ```yaml
-# values.yaml
 server:
   replicaCount: 2
   image:
     repository: ghcr.io/displacetech/swordfish/server
     tag: "latest"
-    # sha: "a1b2c3d"  # Optional: Use specific commit
-  
-  # GitHub Container Registry authentication
   imagePullSecrets:
     create: true
     github:
       username: YOUR_GITHUB_USERNAME
       token: YOUR_GITHUB_PAT
-  
+
 ingress:
   enabled: true
   className: nginx
@@ -205,142 +376,55 @@ ingress:
         - swordfish.example.com
 ```
 
-#### Upgrading
-
-To upgrade an existing deployment:
 ```bash
-helm upgrade swordfish ./helm/swordfish -n swordfish
+helm install swordfish ./helm/swordfish -n swordfish -f values.yaml
 ```
 
-#### Uninstalling
+### Upgrading and uninstalling
 
-To remove the deployment:
 ```bash
+helm upgrade swordfish ./helm/swordfish -n swordfish
 helm uninstall swordfish -n swordfish
 ```
 
-### CI/CD Pipeline
+### Automated updates with Keel
 
-The project uses GitHub Actions to automatically build and push the server container image to GitHub Container Registry (ghcr.io).
+The Helm chart annotates the Deployment for [Keel](https://keel.sh), which polls GHCR and triggers a rolling restart when a new image digest is detected. The default `force` policy is suitable for `latest`-tagged images.
 
-#### Pipeline Behavior
+| Policy | When to use |
+|---|---|
+| `force` | `latest` tag — re-pulls whenever a new digest is pushed |
+| `semver` | Semantically versioned tags (e.g., `1.2.3`) |
+| `glob` | Pattern-matched tags (e.g., `sha-*`) |
+| `none` | Disable Keel automation entirely |
 
-- On Branch Pushes:
-  - Builds the server image
-  - Tags with commit SHA (e.g., `sha-a1b2c3d`)
-  - Pushes to GitHub Container Registry
-
-- On Main Branch:
-  - Builds the server image
-  - Tags with both commit SHA and `latest`
-  - Pushes to GitHub Container Registry
-  - Images are available at `ghcr.io/<org>/<repo>/server:<tag>`
-
-- On Pull Requests from Forks:
-  - Builds the server image
-  - Runs tests and verifies build
-  - Does not push to registry (for security)
-
-#### Container Registry Cleanup
-
-GitHub Container Registry provides automatic cleanup of untagged container images after 30 days. The `latest` tag and any specific version tags are preserved indefinitely.
-
-### Automated Deployment with Keel
-
-The Helm chart includes [Keel](https://keel.sh) annotations on the Deployment, enabling automatic rollout of new images without manual `helm upgrade` runs.
-
-#### How It Works
-
-When a new image is pushed to GHCR (e.g., on every merge to `main`), Keel detects the update and triggers a rolling restart of the Deployment to pull the new image.
-
-The default configuration uses the `force` policy with polling:
-
-| Annotation | Value | Meaning |
-|---|---|---|
-| `keel.sh/policy` | `force` | Always pull the latest image, regardless of tag changes |
-| `keel.sh/trigger` | `poll` | Keel polls the registry on a schedule |
-| `keel.sh/pollSchedule` | `@every 5m` | Check for new images every 5 minutes |
-| `keel.sh/match-tag` | `true` | Only update when the new image matches the currently deployed tag |
-
-#### Policy Options
-
-- **`force`** — Suitable for `latest`-tagged images. Keel re-pulls and restarts whenever a new digest is detected at the same tag.
-- **`semver`** — Suitable for semantically versioned tags (e.g., `1.2.3`). Keel upgrades within the configured constraint.
-- **`glob`** — Suitable for pattern-matched tags (e.g., `sha-*`). Keel updates when a new tag matching the glob is pushed.
-
-#### Customizing Keel Behavior
-
-Override the defaults in your `values.yaml`:
+Override in `values.yaml`:
 
 ```yaml
 keel:
-  # Use semver policy for tagged releases
   policy: "semver"
   trigger: "poll"
   pollSchedule: "@every 10m"
   matchTag: "true"
 ```
 
-To disable Keel automation entirely, set `keel.policy` to `none`:
+## CI/CD
 
-```yaml
-keel:
-  policy: "none"
-```
+GitHub Actions (`.github/workflows/build.yml`) runs on every push or pull request touching `server/**`, `frontend/**`, or the workflow file itself.
 
-#### Required Setup
+| Job | Steps |
+|---|---|
+| `test` | Sets up PHP 8.4 + Redis, installs Composer deps, runs PHPUnit with coverage |
+| `js-test` | Sets up Node.js 20, installs npm deps, runs Vitest with coverage |
+| `build` | Builds the SPA (`npm run build`), then builds and pushes the Docker image to GHCR |
 
-1. Ensure your repository has GitHub Actions enabled
-2. The workflow uses `GITHUB_TOKEN` which is automatically provided
-3. GitHub Container Registry permissions are automatically handled by the workflow
+Images are tagged with the commit SHA on every push. The `latest` tag is also applied on pushes to `main`. Pull requests from forks build the image but do not push it.
 
-#### Using the Container Images
+## Contributing
 
-In your Kubernetes deployment:
-```yaml
-# values.yaml
-server:
-  image:
-    repository: ghcr.io/<org>/<repo>/server
-    # Use latest for production
-    tag: "latest"  
-    # Or use a specific commit for immutable deployments
-    # tag: "sha-a1b2c3d"
-```
+1. Fork the repository and create a feature branch.
+2. Make your changes. Run `npm run lint` and `npm test` in `frontend/`, and `composer test` in `server/` before committing.
+3. If you change the frontend, rebuild with `npm run build` and commit the updated `server/static/dist/`.
+4. Open a pull request against `main`. Reference any related issue in the PR description.
 
-For local development, you can still use:
-```bash
-make server-build
-```
-
-This will build the image locally without pushing to the registry.
-
-## API Endpoints
-
-### Web Interface
-- `GET /` - Secret creation page
-- `GET /secret` - Secret retrieval page
-- `GET /secret/{secretId}` - Pre-populated secret retrieval page
-
-### Backend API
-- `POST /create` - Create a new secret
-- `POST /retrieve` - Retrieve an existing secret
-
-## CLI Usage
-
-The CLI tool provides two main commands:
-
-```bash
-# Create a new secret
-./cli/cli.php secret:create "your secret" "your password"
-
-# Retrieve a secret
-./cli/cli.php secret:retrieve "secret-id" "password"
-```
-
-## Environment Variables
-
-- `SWORDFISH_URL`: API server URL (CLI only, defaults to https://swordfish.displace.tech)
-- `SERVER_PORT`: Server listening port (default: 8080)
-- `REDIS_HOST`: Redis server hostname
-- `REDIS_PORT`: Redis server port (default: 6379)
+Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before contributing.
