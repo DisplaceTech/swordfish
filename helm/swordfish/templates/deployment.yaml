@@ -7,7 +7,9 @@ metadata:
   annotations:
     keel.sh/policy: {{ .Values.keel.policy | quote }}
     keel.sh/trigger: {{ .Values.keel.trigger | quote }}
+    {{- if eq .Values.keel.trigger "poll" }}
     keel.sh/pollSchedule: {{ .Values.keel.pollSchedule | quote }}
+    {{- end }}
     keel.sh/match-tag: {{ .Values.keel.matchTag | quote }}
 spec:
   replicas: {{ .Values.server.replicaCount }}
