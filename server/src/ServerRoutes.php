@@ -205,8 +205,9 @@ class ServerRoutes
      * Accepts: {"id": "...", "verifier": "..."}
      * Returns: {"encrypted_secret": "...", "views_remaining": N, "expires_at": T}
      *
-     * Verifies the bcrypt-hashed verifier, decrements the view counter, and
-     * deletes all keys for the secret when views are exhausted.
+     * Enforces a rate limit of 30 requests per minute per IP. Verifies the
+     * bcrypt-hashed verifier, decrements the view counter, and deletes all keys
+     * for the secret when views are exhausted.
      *
      * @param Logger $logger
      * @param Client $redisClient
@@ -214,9 +215,20 @@ class ServerRoutes
      */
     public static function retrieveSecretJson(Logger $logger, Client $redisClient): CallableRequestHandler
     {
-        $service = new SecretService($redisClient);
-        return new CallableRequestHandler(function (Request $request) use ($logger, $service) {
-            $data = yield $request->getBody()->read();
+        $service     = new SecretService($redisClient);
+        $rateLimiter = new RateLimiter($redisClient);
+        return new CallableRequestHandler(function (Request $request) use ($logger, $service, $rateLimiter) {
+            $ip = $request->getClient()->getRemoteAddress()->getHost();
+            if (!$rateLimiter->isAllowed($ip)) {
+                $logger->warning(sprintf('Rate limit exceeded for IP %s on /api/retrieve', $ip));
+                return new Response(
+                    Status::TOO_MANY_REQUESTS,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'Too Many Requests'])
+                );
+            }
+
+            $data = (string) yield $request->getBody()->read();
 
             $parsed = json_decode($data, true);
             if ($parsed === null || !isset($parsed['id'], $parsed['verifier'])) {
