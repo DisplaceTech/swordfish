@@ -112,22 +112,62 @@ paths:
       tags:
         - "api"
       consumes:
-        - "text/plain"
+        - "application/json"
       produces:
-        - "text/plain"
+        - "application/json"
       parameters:
         - in: "body"
           name: "body"
-          description: "Serialized authentication request for a stored secret"
+          description: "JSON authentication request for a stored secret"
           required: true
           schema:
-            type: "string"
+            type: "object"
+            required:
+              - "id"
+              - "verifier"
+            properties:
+              id:
+                type: "string"
+                description: "Secret ID returned at creation time"
+              verifier:
+                type: "string"
+                description: "Verifier string used to authenticate the request"
       responses:
         "200":
           description: "OK"
+          schema:
+            type: "object"
+            properties:
+              encrypted_secret:
+                type: "string"
+                description: "The encrypted secret payload"
+              views_remaining:
+                type: "integer"
+                description: "Number of views remaining after this retrieval"
+              expires_at:
+                type: "integer"
+                description: "Unix timestamp when the secret expires"
         "400":
           description: "Bad Request"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+                example: "Bad Request"
         "401":
           description: "Unauthorized"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+                example: "Invalid authorization"
         "404":
           description: "Not Found"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+                example: "Not found or expired"
