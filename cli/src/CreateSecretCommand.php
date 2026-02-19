@@ -5,6 +5,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class CreateSecretCommand extends Command
@@ -28,16 +29,18 @@ class CreateSecretCommand extends Command
             ->addArgument('secret', InputArgument::REQUIRED, 'Plaintext secret to protect.')
             ->addArgument('password', InputArgument::REQUIRED, 'User-friendly password used to protect the secret.')
             ->addOption('ttl', null, InputOption::VALUE_REQUIRED, 'Time-to-live for the secret (1h, 6h, 24h, 3d, 7d).', '24h')
-            ->addOption('max-views', null, InputOption::VALUE_REQUIRED, 'Maximum number of times the secret can be viewed (1, 3, 5, 10, or unlimited).', 'unlimited');
+            ->addOption('max-views', null, InputOption::VALUE_REQUIRED, 'Maximum number of times the secret can be viewed (1, 3, 5, 10, or unlimited).', 'unlimited')
+            ->addOption('json', null, InputOption::VALUE_NONE, 'Output as machine-readable JSON.');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $serverUrl = getenv('SWORDFISH_URL') ?: 'https://swordfish.displace.tech';
+        $jsonMode = $input->getOption('json');
 
         $ttlString = $input->getOption('ttl');
         if (!array_key_exists($ttlString, self::TTL_MAP)) {
-            $output->writeln(sprintf(
+            $this->writeError($output, $jsonMode, sprintf(
                 'Invalid TTL "%s". Allowed values: %s.',
                 $ttlString,
                 implode(', ', array_keys(self::TTL_MAP))
@@ -73,18 +76,18 @@ class CreateSecretCommand extends Command
         $response = $this->httpPost("{$serverUrl}/api/create", ['encrypted_secret' => $encryptedSecret, 'ttl' => $ttl, 'max_views' => $maxViews]);
 
         if ($response === false) {
-            $output->writeln('<error>Network error: could not reach server</error>');
+            $this->writeError($output, $jsonMode, 'Network error: could not reach server');
             return Command::FAILURE;
         }
 
         $parsed = json_decode($response, true);
         if (json_last_error() === JSON_ERROR_NONE) {
             if (isset($parsed['error'])) {
-                $output->writeln('<error>Server error: ' . ($parsed['message'] ?? $parsed['error']) . '</error>');
+                $this->writeError($output, $jsonMode, 'Server error: ' . ($parsed['message'] ?? $parsed['error']));
                 return Command::FAILURE;
             }
             if (!isset($parsed['id'])) {
-                $output->writeln('<error>Unexpected server response</error>');
+                $this->writeError($output, $jsonMode, 'Unexpected server response');
                 return Command::FAILURE;
             }
             $secretId = $parsed['id'];
@@ -93,16 +96,33 @@ class CreateSecretCommand extends Command
             $secretId = $response;
         }
 
-        $output->writeln([
-            '<info>Secret Created</info>',
-            '<info>==============</info>',
-            'Secret ID: ' . $secretId,
-            'Password:  ' . $password,
-            '',
-            'URL:       ' . $serverUrl . '/secret/' . $secretId
-        ]);
+        if ($jsonMode) {
+            $output->writeln(json_encode([
+                'id'       => $secretId,
+                'url'      => $serverUrl . '/secret/' . $secretId,
+                'password' => $password,
+            ]));
+        } else {
+            $output->writeln([
+                '<info>Secret Created</info>',
+                '<info>==============</info>',
+                'Secret ID: ' . $secretId,
+                'Password:  ' . $password,
+                '',
+                'URL:       ' . $serverUrl . '/secret/' . $secretId
+            ]);
+        }
 
         return Command::SUCCESS;
+    }
+
+    private function writeError(OutputInterface $output, bool $jsonMode, string $message): void
+    {
+        if ($jsonMode && $output instanceof ConsoleOutputInterface) {
+            $output->getErrorOutput()->writeln($message);
+        } else {
+            $output->writeln('<error>' . $message . '</error>');
+        }
     }
 
     protected function httpPost(string $url, array $data): string|false

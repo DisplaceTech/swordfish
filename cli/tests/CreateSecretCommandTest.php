@@ -182,4 +182,43 @@ class CreateSecretCommandTest extends TestCase
     {
         return [['0'], ['2'], ['7'], ['100'], ['none'], ['all'], ['']];
     }
+
+    public function testJsonFlagOutputsValidJson(): void
+    {
+        $tester = $this->makeCommand(json_encode(['id' => 'abc123']));
+        $status = $tester->execute(['secret' => 'my secret', 'password' => 'pass', '--json' => true]);
+
+        $this->assertSame(Command::SUCCESS, $status);
+        $decoded = json_decode(trim($tester->getDisplay()), true);
+        $this->assertSame(JSON_ERROR_NONE, json_last_error());
+        $this->assertSame('abc123', $decoded['id']);
+        $this->assertSame('pass', $decoded['password']);
+        $this->assertStringContainsString('/secret/abc123', $decoded['url']);
+    }
+
+    public function testJsonFlagErrorGoesToStderr(): void
+    {
+        $tester = $this->makeCommand(json_encode(['error' => true, 'message' => 'Storage full']));
+        $status = $tester->execute(
+            ['secret' => 'my secret', 'password' => 'pass', '--json' => true],
+            ['capture_stderr_separately' => true]
+        );
+
+        $this->assertSame(Command::FAILURE, $status);
+        $this->assertEmpty(trim($tester->getDisplay()));
+        $this->assertStringContainsString('Server error: Storage full', $tester->getErrorOutput());
+    }
+
+    public function testJsonFlagNetworkErrorGoesToStderr(): void
+    {
+        $tester = $this->makeCommand(false);
+        $status = $tester->execute(
+            ['secret' => 'my secret', 'password' => 'pass', '--json' => true],
+            ['capture_stderr_separately' => true]
+        );
+
+        $this->assertSame(Command::FAILURE, $status);
+        $this->assertEmpty(trim($tester->getDisplay()));
+        $this->assertStringContainsString('Network error', $tester->getErrorOutput());
+    }
 }

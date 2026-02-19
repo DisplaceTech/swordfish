@@ -123,4 +123,42 @@ class RetrieveSecretCommandTest extends TestCase
         $this->assertSame(Command::FAILURE, $status);
         $this->assertStringContainsString('Network error', $tester->getDisplay());
     }
+
+    public function testJsonFlagOutputsValidJson(): void
+    {
+        $encryptedHex = $this->buildEncryptedHex('my secret', 'pass');
+        $tester = $this->makeCommand(json_encode(['encrypted_secret' => $encryptedHex]));
+        $status = $tester->execute(['secret-id' => 'abc123', 'password' => 'pass', '--json' => true]);
+
+        $this->assertSame(Command::SUCCESS, $status);
+        $decoded = json_decode(trim($tester->getDisplay()), true);
+        $this->assertSame(JSON_ERROR_NONE, json_last_error());
+        $this->assertSame('my secret', $decoded['secret']);
+    }
+
+    public function testJsonFlagErrorGoesToStderr(): void
+    {
+        $tester = $this->makeCommand(json_encode(['error' => true, 'message' => 'Not found or expired']));
+        $status = $tester->execute(
+            ['secret-id' => 'abc123', 'password' => 'pass', '--json' => true],
+            ['capture_stderr_separately' => true]
+        );
+
+        $this->assertSame(Command::FAILURE, $status);
+        $this->assertEmpty(trim($tester->getDisplay()));
+        $this->assertStringContainsString('Server error: Not found or expired', $tester->getErrorOutput());
+    }
+
+    public function testJsonFlagNetworkErrorGoesToStderr(): void
+    {
+        $tester = $this->makeCommand(false);
+        $status = $tester->execute(
+            ['secret-id' => 'abc123', 'password' => 'pass', '--json' => true],
+            ['capture_stderr_separately' => true]
+        );
+
+        $this->assertSame(Command::FAILURE, $status);
+        $this->assertEmpty(trim($tester->getDisplay()));
+        $this->assertStringContainsString('Network error', $tester->getErrorOutput());
+    }
 }
