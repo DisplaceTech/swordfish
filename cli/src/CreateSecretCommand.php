@@ -60,18 +60,18 @@ class CreateSecretCommand extends Command
         $response = $this->httpPost("{$serverUrl}/api/create", ['encrypted_secret' => $encryptedSecret, 'ttl' => $ttl]);
 
         if ($response === false) {
-            $output->writeln('Network error: could not reach server');
+            $output->writeln('<error>Network error: could not reach server</error>');
             return Command::FAILURE;
         }
 
         $parsed = json_decode($response, true);
         if (json_last_error() === JSON_ERROR_NONE) {
             if (isset($parsed['error'])) {
-                $output->writeln('Server error: ' . ($parsed['message'] ?? $parsed['error']));
+                $output->writeln('<error>Server error: ' . ($parsed['message'] ?? $parsed['error']) . '</error>');
                 return Command::FAILURE;
             }
             if (!isset($parsed['id'])) {
-                $output->writeln('Unexpected server response');
+                $output->writeln('<error>Unexpected server response</error>');
                 return Command::FAILURE;
             }
             $secretId = $parsed['id'];
@@ -81,8 +81,8 @@ class CreateSecretCommand extends Command
         }
 
         $output->writeln([
-            'Secret Created',
-            '==============',
+            '<info>Secret Created</info>',
+            '<info>==============</info>',
             'Secret ID: ' . $secretId,
             'Password:  ' . $password,
             '',

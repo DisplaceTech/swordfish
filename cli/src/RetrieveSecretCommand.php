@@ -31,7 +31,7 @@ class RetrieveSecretCommand extends Command
         $response = $this->httpPost("{$serverUrl}/api/retrieve", ['id' => $secretId, 'verifier' => $verifier]);
 
         if ($response === false) {
-            $output->writeln('Network error: could not reach server');
+            $output->writeln('<error>Network error: could not reach server</error>');
             return Command::FAILURE;
         }
 
@@ -39,23 +39,28 @@ class RetrieveSecretCommand extends Command
         if (json_last_error() === JSON_ERROR_NONE) {
             if (isset($parsed['error'])) {
                 $message = $parsed['message'] ?? $parsed['error'];
-                $output->writeln('Server error: ' . $message);
+                $friendlyMessage = match(true) {
+                    str_contains($message, 'not found') || str_contains($message, 'expired') => 'Secret not found or has expired.',
+                    str_contains($message, 'authorization') => 'Wrong password: the password you entered is incorrect.',
+                    default => 'Server error: ' . $message,
+                };
+                $output->writeln('<error>' . $friendlyMessage . '</error>');
                 return Command::FAILURE;
             }
             if (!isset($parsed['encrypted_secret'])) {
-                $output->writeln('Unexpected server response');
+                $output->writeln('<error>Unexpected server response</error>');
                 return Command::FAILURE;
             }
             $encryptedHex = $parsed['encrypted_secret'];
         } else {
             // v1 fallback: plain-text response is the hex-encoded encrypted secret
             if ($response === "Not found or expired") {
-                $output->writeln('Secret is either not found or expired!');
+                $output->writeln('<error>Secret not found or has expired.</error>');
                 return Command::FAILURE;
             }
 
             if ($response === "Invalid authorization") {
-                $output->writeln('Invalid password!');
+                $output->writeln('<error>Wrong password: the password you entered is incorrect.</error>');
                 return Command::FAILURE;
             }
 
@@ -63,7 +68,7 @@ class RetrieveSecretCommand extends Command
         }
 
         if (strlen($encryptedHex) % 2 !== 0 || !ctype_xdigit($encryptedHex)) {
-            $output->writeln('Invalid encrypted secret format received.');
+            $output->writeln('<error>Invalid encrypted secret format received.</error>');
             return Command::FAILURE;
         }
         $decoded = hex2bin($encryptedHex);
@@ -79,13 +84,13 @@ class RetrieveSecretCommand extends Command
         $decrypted = sodium_crypto_aead_aes256gcm_decrypt($ciphertext, '', $nonce, $key);
 
         if ($decrypted === false) {
-            $output->writeln('Unable to decrypt secret!');
+            $output->writeln('<error>Unable to decrypt secret. Check your password and try again.</error>');
             return Command::FAILURE;
         }
 
         $output->writeln([
-            'Secret Decrypted!',
-            '==============',
+            '<info>Secret Decrypted!</info>',
+            '<info>==============</info>',
             $decrypted
         ]);
 
