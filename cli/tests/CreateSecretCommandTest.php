@@ -76,4 +76,66 @@ class CreateSecretCommandTest extends TestCase
         $this->assertSame(Command::FAILURE, $status);
         $this->assertStringContainsString('Network error', $tester->getDisplay());
     }
+
+    public function testDefaultTtlIs24h(): void
+    {
+        $capturedData = null;
+        $command = new class($capturedData) extends CreateSecretCommand {
+            public function __construct(private mixed &$captured) {
+                parent::__construct();
+            }
+            protected function httpPost(string $url, array $data): string|false {
+                $this->captured = $data;
+                return json_encode(['id' => 'abc123']);
+            }
+        };
+        $tester = new CommandTester($command);
+        $status = $tester->execute(['secret' => 'my secret', 'password' => 'pass']);
+
+        $this->assertSame(Command::SUCCESS, $status);
+        $this->assertSame(86400, $capturedData['ttl']);
+    }
+
+    /**
+     * @dataProvider validTtlProvider
+     */
+    public function testValidTtlValues(string $ttlString, int $expectedSeconds): void
+    {
+        $capturedData = null;
+        $command = new class($capturedData) extends CreateSecretCommand {
+            public function __construct(private mixed &$captured) {
+                parent::__construct();
+            }
+            protected function httpPost(string $url, array $data): string|false {
+                $this->captured = $data;
+                return json_encode(['id' => 'abc123']);
+            }
+        };
+        $tester = new CommandTester($command);
+        $status = $tester->execute(['secret' => 'my secret', 'password' => 'pass', '--ttl' => $ttlString]);
+
+        $this->assertSame(Command::SUCCESS, $status);
+        $this->assertSame($expectedSeconds, $capturedData['ttl']);
+    }
+
+    public static function validTtlProvider(): array
+    {
+        return [
+            '1h'  => ['1h',  3600],
+            '6h'  => ['6h',  21600],
+            '24h' => ['24h', 86400],
+            '3d'  => ['3d',  259200],
+            '7d'  => ['7d',  604800],
+        ];
+    }
+
+    public function testInvalidTtlShowsError(): void
+    {
+        $tester = $this->makeCommand(json_encode(['id' => 'abc123']));
+        $status = $tester->execute(['secret' => 'my secret', 'password' => 'pass', '--ttl' => '2h']);
+
+        $this->assertSame(Command::FAILURE, $status);
+        $this->assertStringContainsString('Invalid TTL "2h"', $tester->getDisplay());
+        $this->assertStringContainsString('1h, 6h, 24h, 3d, 7d', $tester->getDisplay());
+    }
 }
