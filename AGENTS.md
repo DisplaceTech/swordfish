@@ -65,3 +65,14 @@ npm run lint          # run ESLint
 - **PHP**: No phpunit/phpcs configuration; linting/testing done by building and running the Docker image
 - **Frontend**: Vitest test suite at `frontend/src/__tests__/`; run with `npm test` from `frontend/`; also run `npm run lint` (ESLint) and `npm run build` (Vite) to verify
 - **`server/static/dist/`** is committed to the repo — always rebuild with `npm run build` after frontend changes
+
+### Frontend Testing Patterns
+- **Test deps**: `@testing-library/preact`, `jsdom`, `@testing-library/jest-dom` (all devDependencies)
+- **Environment**: Default is `node` (for crypto tests using Web Crypto API); component tests use `// @vitest-environment jsdom` per-file annotation
+- **Globals**: `globals: true` in `vite.config.js` test config — required for `@testing-library/jest-dom` to extend `expect` in `setupFiles`
+- **Setup file**: `src/__tests__/setup.js` imports `@testing-library/jest-dom`; referenced via `setupFiles` in `vite.config.js`
+- **Mocking**: Use `vi.mock('../api', () => ({ fn: vi.fn() }))` and `vi.mock('../crypto', ...)` at module level; import mocked functions after `vi.mock()` calls; reset with `vi.clearAllMocks()` in `beforeEach`
+- **Preact events**: Use `fireEvent.input` for `<textarea>` and `<input>` (Preact uses `onInput`); use `fireEvent.change` for `<select>` (uses `onChange`); use `fireEvent.submit` on the `<form>` element
+- **Async state**: Use `screen.findBy*` or `waitFor` after async operations (form submit, API calls)
+- **Clipboard**: Mock `navigator.clipboard` via `Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn() }, writable: true, configurable: true })` in `beforeEach`
+- **Coverage**: `include: ['src/**/*.{js,jsx}']`, excludes `src/main.jsx` and `src/__tests__/**`; page components target ≥70%
