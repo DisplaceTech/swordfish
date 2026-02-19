@@ -1,7 +1,7 @@
 swagger: "2.0"
 info:
   description: "This is a basic API for setting and retrieving secret values from a server."
-  version: "1.0.0"
+  version: "2.0.0"
   title: "Project Swordfish"
   contact:
     email: "eric@eamann.com"
@@ -281,6 +281,16 @@ paths:
       responses:
         "200":
           description: "OK"
+          headers:
+            X-RateLimit-Limit:
+              type: "integer"
+              description: "Maximum number of requests allowed per minute"
+            X-RateLimit-Remaining:
+              type: "integer"
+              description: "Number of requests remaining in the current window"
+            X-RateLimit-Reset:
+              type: "integer"
+              description: "Unix timestamp when the rate-limit window resets"
           schema:
             type: "object"
             properties:
@@ -296,6 +306,16 @@ paths:
                 description: "Unix timestamp when the secret expires"
         "400":
           description: "Bad Request"
+          headers:
+            X-RateLimit-Limit:
+              type: "integer"
+              description: "Maximum number of requests allowed per minute"
+            X-RateLimit-Remaining:
+              type: "integer"
+              description: "Number of requests remaining in the current window"
+            X-RateLimit-Reset:
+              type: "integer"
+              description: "Unix timestamp when the rate-limit window resets"
           schema:
             type: "object"
             properties:
@@ -307,6 +327,16 @@ paths:
                 example: "Invalid or missing JSON fields"
         "401":
           description: "Unauthorized"
+          headers:
+            X-RateLimit-Limit:
+              type: "integer"
+              description: "Maximum number of requests allowed per minute"
+            X-RateLimit-Remaining:
+              type: "integer"
+              description: "Number of requests remaining in the current window"
+            X-RateLimit-Reset:
+              type: "integer"
+              description: "Unix timestamp when the rate-limit window resets"
           schema:
             type: "object"
             properties:
@@ -318,6 +348,16 @@ paths:
                 example: "Invalid authorization"
         "404":
           description: "Not Found"
+          headers:
+            X-RateLimit-Limit:
+              type: "integer"
+              description: "Maximum number of requests allowed per minute"
+            X-RateLimit-Remaining:
+              type: "integer"
+              description: "Number of requests remaining in the current window"
+            X-RateLimit-Reset:
+              type: "integer"
+              description: "Unix timestamp when the rate-limit window resets"
           schema:
             type: "object"
             properties:
@@ -329,6 +369,16 @@ paths:
                 example: "Not found or expired"
         "429":
           description: "Too Many Requests"
+          headers:
+            X-RateLimit-Limit:
+              type: "integer"
+              description: "Maximum number of requests allowed per minute"
+            X-RateLimit-Remaining:
+              type: "integer"
+              description: "Number of requests remaining in the current window"
+            X-RateLimit-Reset:
+              type: "integer"
+              description: "Unix timestamp when the rate-limit window resets"
           schema:
             type: "object"
             properties:
