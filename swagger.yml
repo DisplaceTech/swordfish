@@ -110,6 +110,16 @@ paths:
           description: "Payload Too Large"
         "422":
           description: "Unprocessable Entity — TTL out of range"
+  /retrieve:
+    post:
+      summary: "Deprecated. Redirects to /api/retrieve (307)."
+      tags:
+        - "api"
+      deprecated: true
+      responses:
+        "307":
+          description: "Temporary Redirect to /api/retrieve"
+
   /api/retrieve:
     post:
       summary: "Retrieve a secret from the datastore."
