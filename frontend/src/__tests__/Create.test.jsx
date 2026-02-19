@@ -186,7 +186,7 @@ describe('Create — success state interactions', () => {
 
   it('copy button writes link to clipboard', async () => {
     await renderSuccess()
-    fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link to clipboard' }))
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
         expect.stringContaining('/secret/abc123#')
@@ -197,8 +197,8 @@ describe('Create — success state interactions', () => {
   it('copy button shows "Copied!" after click', async () => {
     vi.useFakeTimers()
     await renderSuccess()
-    fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link to clipboard' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Link copied to clipboard' })).toBeInTheDocument())
   })
 
   it('"Create another secret" resets to the form', async () => {

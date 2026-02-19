@@ -28,7 +28,7 @@ describe('About', () => {
 
   it('renders the Security Guarantees section', () => {
     render(<About />)
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Security Guarantees')
+    expect(screen.getByRole('heading', { level: 2, name: 'Security Guarantees' })).toBeInTheDocument()
   })
 
   it('renders all four security guarantee items', () => {
