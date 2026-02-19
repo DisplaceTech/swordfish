@@ -234,6 +234,24 @@ paths:
               message:
                 type: "string"
                 example: "Not found or expired"
+  /api/metrics:
+    get:
+      summary: "Retrieve Prometheus-format metrics counters."
+      tags:
+        - "api"
+      produces:
+        - "text/plain"
+      parameters:
+        - name: "Authorization"
+          in: "header"
+          description: "Bearer token (required only when METRICS_TOKEN env var is set)"
+          required: false
+          type: "string"
+      responses:
+        "200":
+          description: "Prometheus text format metrics"
+        "401":
+          description: "Unauthorized — token required but missing or invalid"
   /api/retrieve:
     post:
       summary: "Retrieve a secret from the datastore."

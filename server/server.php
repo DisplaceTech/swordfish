@@ -56,6 +56,7 @@ Amp\Loop::run(function () {
     $router->addRoute('GET', '/api/secret/{secretId}/info', ServerRoutes::secretInfo($logger, $redisClient));
     $router->addRoute('POST', '/api/retrieve', ServerRoutes::retrieveSecretJson($logger, $redisClient, $metrics));
     $router->addRoute('POST', '/retrieve', ServerRoutes::redirectRetrieve($logger));
+    $router->addRoute('GET', '/api/metrics', ServerRoutes::metricsEndpoint($logger, $redisClient));
 
     $router->setFallback(ServerRoutes::spaFallback($logger, $documentRoot));
 
