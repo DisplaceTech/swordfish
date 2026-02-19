@@ -42,9 +42,11 @@ const steps = [
 function StepCard({ number, title, description }) {
   return (
     <div className="flex gap-4 rounded-xl border border-gray-800 bg-gray-900 p-6">
-      <span className="shrink-0 text-2xl font-bold text-indigo-400">{number}</span>
+      <span aria-hidden="true" className="shrink-0 text-2xl font-bold text-indigo-400">{number}</span>
       <div>
-        <h3 className="mb-1 text-lg font-semibold text-gray-100">{title}</h3>
+        <h2 className="mb-1 text-lg font-semibold text-gray-100">
+          <span className="sr-only">Step {number}: </span>{title}
+        </h2>
         <p className="text-sm leading-relaxed text-gray-400">{description}</p>
       </div>
     </div>
@@ -70,14 +72,14 @@ export default function About() {
         <h2 className="mb-4 text-xl font-bold text-indigo-300">Security Guarantees</h2>
         <ul className="space-y-3 text-sm text-gray-300">
           <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-indigo-400">✓</span>
+            <span aria-hidden="true" className="mt-0.5 text-indigo-400">✓</span>
             <span>
               <strong className="text-gray-100">Your secret never leaves your browser in plaintext.</strong>{' '}
               Encryption happens locally using the Web Crypto API before any network request is made.
             </span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-indigo-400">✓</span>
+            <span aria-hidden="true" className="mt-0.5 text-indigo-400">✓</span>
             <span>
               <strong className="text-gray-100">Your passphrase never leaves your browser.</strong>{' '}
               Only a PBKDF2-derived verifier (bcrypt-hashed server-side) is transmitted — the raw
@@ -85,7 +87,7 @@ export default function About() {
             </span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-indigo-400">✓</span>
+            <span aria-hidden="true" className="mt-0.5 text-indigo-400">✓</span>
             <span>
               <strong className="text-gray-100">The server cannot read your secrets.</strong>{' '}
               The server stores only AES-GCM ciphertext. Without the passphrase, the stored data is
@@ -93,7 +95,7 @@ export default function About() {
             </span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-indigo-400">✓</span>
+            <span aria-hidden="true" className="mt-0.5 text-indigo-400">✓</span>
             <span>
               <strong className="text-gray-100">Decryption happens locally on retrieval.</strong>{' '}
               The encrypted payload is returned to your browser and decrypted there — the plaintext
@@ -104,7 +106,7 @@ export default function About() {
       </div>
 
       <div className="text-center">
-        <p className="mb-4 text-sm text-gray-500">
+        <p className="mb-4 text-sm text-gray-400">
           Swordfish is open source. Read the code, audit the crypto, or contribute.
         </p>
         <a

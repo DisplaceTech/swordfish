@@ -70,14 +70,14 @@ export default function Retrieve({ id: urlId }) {
 
         <div className="flex flex-wrap gap-4 text-sm text-gray-400">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2 w-2 rounded-full bg-indigo-400" />
+            <span aria-hidden="true" className="inline-block h-2 w-2 rounded-full bg-indigo-400" />
             {viewsRemaining === 0
               ? 'No views remaining — this secret has been deleted'
               : `${viewsRemaining} view${viewsRemaining === 1 ? '' : 's'} remaining`}
           </span>
           {expiresAt !== null && (
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2 w-2 rounded-full bg-indigo-400" />
+              <span aria-hidden="true" className="inline-block h-2 w-2 rounded-full bg-indigo-400" />
               Expires {formatExpiry(expiresAt)}
             </span>
           )}
@@ -93,7 +93,7 @@ export default function Retrieve({ id: urlId }) {
           }}
           className="mt-8 inline-block py-3 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
         >
-          ← Retrieve another secret
+          <span aria-hidden="true">← </span>Retrieve another secret
         </button>
       </main>
     )

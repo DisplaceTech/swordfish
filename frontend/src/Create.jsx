@@ -89,11 +89,12 @@ export default function Create() {
         </p>
 
         <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
-          <label className="mb-2 block text-sm font-medium text-gray-300">
+          <label htmlFor="share-link" className="mb-2 block text-sm font-medium text-gray-300">
             Shareable link
           </label>
           <div className="flex gap-2">
             <input
+              id="share-link"
               type="text"
               readOnly
               value={result.link}
@@ -103,17 +104,18 @@ export default function Create() {
             <button
               type="button"
               onClick={handleCopy}
+              aria-label={copied ? 'Link copied to clipboard' : 'Copy link to clipboard'}
               className={`shrink-0 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
                 copied
                   ? 'bg-green-700 text-green-100'
                   : 'bg-indigo-600 text-white hover:bg-indigo-500'
               }`}
             >
-              {copied ? 'Copied!' : 'Copy'}
+              <span aria-live="polite" aria-atomic="true">{copied ? 'Copied!' : 'Copy'}</span>
             </button>
           </div>
-          <p className="mt-3 text-xs text-gray-500">
-            Secret ID: <span className="font-mono text-gray-400">{result.id}</span>
+          <p className="mt-3 text-xs text-gray-400">
+            Secret ID: <span className="font-mono text-gray-300">{result.id}</span>
           </p>
         </div>
 
@@ -167,9 +169,10 @@ export default function Create() {
               value={password}
               onInput={e => setPassword(e.target.value)}
               disabled={loading}
+              aria-describedby="password-hint"
               className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p id="password-hint" className="mt-1 text-xs text-gray-400">
               The passphrase is embedded in the shareable link and never sent to the server.
             </p>
           </div>

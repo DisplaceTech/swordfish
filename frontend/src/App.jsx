@@ -9,6 +9,7 @@ function NavLink({ href, children }) {
   return (
     <Link
       href={href}
+      aria-current={active ? 'page' : undefined}
       className={`py-3 text-sm transition-colors ${
         active ? 'text-indigo-400' : 'text-gray-400 hover:text-gray-100'
       }`}
@@ -21,7 +22,14 @@ function NavLink({ href, children }) {
 export default function App() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
-      <nav className="border-b border-gray-800 bg-gray-900">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:left-4 focus:top-4 focus:rounded-lg focus:bg-indigo-600 focus:px-4 focus:py-2 focus:text-white"
+      >
+        Skip to main content
+      </a>
+
+      <nav aria-label="Main navigation" className="border-b border-gray-800 bg-gray-900">
         <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-6 px-4 py-4">
           <Link
             href="/"
@@ -35,12 +43,14 @@ export default function App() {
         </div>
       </nav>
 
-      <Router>
-        <Create path="/" />
-        <Retrieve path="/secret" />
-        <Retrieve path="/secret/:id" />
-        <About path="/about" />
-      </Router>
+      <div id="main-content" tabIndex={-1}>
+        <Router>
+          <Create path="/" />
+          <Retrieve path="/secret" />
+          <Retrieve path="/secret/:id" />
+          <About path="/about" />
+        </Router>
+      </div>
     </div>
   )
 }
