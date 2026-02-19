@@ -243,6 +243,56 @@ class ServerRoutes
     }
 
     /**
+     * Serve Prometheus-format metrics by summing hourly Redis counters.
+     *
+     * If the METRICS_TOKEN environment variable is set, the request must include
+     * a matching "Authorization: Bearer <token>" header; otherwise 401 is returned.
+     *
+     * @param Logger $logger
+     * @param Client $redisClient
+     * @return CallableRequestHandler
+     */
+    public static function metricsEndpoint(Logger $logger, Client $redisClient): CallableRequestHandler
+    {
+        return new CallableRequestHandler(function(Request $request) use ($logger, $redisClient): Response {
+            $token = getenv('METRICS_TOKEN');
+            if ($token !== false && $token !== '') {
+                $authHeader = $request->getHeader('authorization') ?? '';
+                if ($authHeader !== 'Bearer ' . $token) {
+                    $logger->warning('Metrics request rejected: invalid or missing token');
+                    return new Response(Status::UNAUTHORIZED, ['content-type' => 'text/plain'], 'Unauthorized');
+                }
+            }
+
+            $metricDefs = [
+                'secrets_created_total'   => ['pattern' => 'metrics:created:*',       'help' => 'Total number of secrets created'],
+                'secrets_retrieved_total' => ['pattern' => 'metrics:retrieved:*',     'help' => 'Total number of secrets retrieved'],
+                'bytes_stored_total'      => ['pattern' => 'metrics:bytes_stored:*',  'help' => 'Total bytes stored in secrets'],
+                'bytes_retrieved_total'   => ['pattern' => 'metrics:bytes_retrieved:*', 'help' => 'Total bytes retrieved from secrets'],
+            ];
+
+            $lines = [];
+            foreach ($metricDefs as $name => $def) {
+                $keys  = $redisClient->keys($def['pattern']);
+                $total = 0;
+                if (!empty($keys)) {
+                    $values = $redisClient->mget($keys);
+                    foreach ($values as $v) {
+                        $total += (int) $v;
+                    }
+                }
+                $lines[] = sprintf('# HELP %s %s', $name, $def['help']);
+                $lines[] = sprintf('# TYPE %s counter', $name);
+                $lines[] = sprintf('%s %d', $name, $total);
+            }
+
+            $body = implode("\n", $lines) . "\n";
+            $logger->info('Metrics endpoint served');
+            return new Response(Status::OK, ['content-type' => 'text/plain; version=0.0.4'], $body);
+        });
+    }
+
+    /**
      * Handle API requests to retrieve a secret.
      *
      * @param Logger $logger
