@@ -6,7 +6,7 @@ use Predis\Client;
 
 class SecretService
 {
-    public function __construct(private Client $redis) {}
+    public function __construct(private Client $redis, private ?MetricsService $metrics = null) {}
 
     /**
      * Store a new secret and its verifier hash in Redis.
@@ -24,8 +24,11 @@ class SecretService
         $verifierKey = "verifier:{$secretID}";
         $ttl         = $request->ttl();
 
+        $secret = $request->secret();
         $this->redis->setex($verifierKey, $ttl, $request->verifier());
-        $this->redis->setex($secretKey, $ttl + 30, $request->secret());
+        $this->redis->setex($secretKey, $ttl + 30, $secret);
+
+        $this->metrics?->recordCreated(strlen($secret));
 
         return $secretID;
     }
@@ -47,6 +50,7 @@ class SecretService
 
         $hash = $this->redis->get($verifierKey);
         if ($hash === null) {
+            $this->metrics?->recordExpired();
             throw new SecretNotFoundException(sprintf('Verification code for secret %s not found.', $secretID));
         }
 
@@ -56,8 +60,11 @@ class SecretService
 
         $secret = $this->redis->get($secretKey);
         if ($secret === null) {
+            $this->metrics?->recordExpired();
             throw new SecretNotFoundException(sprintf('Secret %s not found.', $secretID));
         }
+
+        $this->metrics?->recordRetrieved(strlen($secret));
 
         return $secret;
     }
@@ -84,6 +91,7 @@ class SecretService
 
         $hash = $this->redis->get($verifierKey);
         if ($hash === null) {
+            $this->metrics?->recordExpired();
             throw new SecretNotFoundException(sprintf('Verification code for JSON secret %s not found.', $secretID));
         }
 
@@ -93,6 +101,7 @@ class SecretService
 
         $encryptedSecret = $this->redis->get($secretKey);
         if ($encryptedSecret === null) {
+            $this->metrics?->recordExpired();
             throw new SecretNotFoundException(sprintf('JSON secret %s not found.', $secretID));
         }
 
@@ -102,6 +111,8 @@ class SecretService
         if ($viewsAfter <= 0) {
             $this->redis->del($secretKey, $verifierKey, $viewsKey, $expiresKey);
         }
+
+        $this->metrics?->recordRetrieved(strlen($encryptedSecret));
 
         return [
             'encrypted_secret' => $encryptedSecret,

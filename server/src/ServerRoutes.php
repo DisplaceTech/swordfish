@@ -104,11 +104,12 @@ class ServerRoutes
      *
      * @param Logger $logger
      * @param Client $redisClient
+     * @param MetricsService $metrics
      * @return CallableRequestHandler
      */
-    public static function createSecret(Logger $logger, Client $redisClient): CallableRequestHandler
+    public static function createSecret(Logger $logger, Client $redisClient, MetricsService $metrics): CallableRequestHandler
     {
-        $service = new SecretService($redisClient);
+        $service = new SecretService($redisClient, $metrics);
         return new CallableRequestHandler(function(Request $request) use ($logger, $service) {
             $data = yield $request->getBody()->read();
             if (strlen($data) > 100 * 1000) {
@@ -167,11 +168,12 @@ class ServerRoutes
      *
      * @param Logger $logger
      * @param Client $redisClient
+     * @param MetricsService $metrics
      * @return CallableRequestHandler
      */
-    public static function retrieveSecret(Logger $logger, Client $redisClient): CallableRequestHandler
+    public static function retrieveSecret(Logger $logger, Client $redisClient, MetricsService $metrics): CallableRequestHandler
     {
-        $service = new SecretService($redisClient);
+        $service = new SecretService($redisClient, $metrics);
         return new CallableRequestHandler(function (Request $request) use ($logger, $service) {
             $data = yield $request->getBody()->read();
 
@@ -210,11 +212,12 @@ class ServerRoutes
      *
      * @param Logger $logger
      * @param Client $redisClient
+     * @param MetricsService $metrics
      * @return CallableRequestHandler
      */
-    public static function retrieveSecretJson(Logger $logger, Client $redisClient): CallableRequestHandler
+    public static function retrieveSecretJson(Logger $logger, Client $redisClient, MetricsService $metrics): CallableRequestHandler
     {
-        $service = new SecretService($redisClient);
+        $service = new SecretService($redisClient, $metrics);
         return new CallableRequestHandler(function (Request $request) use ($logger, $service) {
             $data = yield $request->getBody()->read();
 
@@ -259,6 +262,42 @@ class ServerRoutes
                 Status::OK,
                 ['content-type' => 'application/json'],
                 json_encode($result)
+            );
+        });
+    }
+
+    /**
+     * Return usage metric counters for a given date (defaults to today).
+     *
+     * Accepts an optional `date` query parameter in YYYY-MM-DD format.
+     * Returns hourly hash counters for created, bytes_stored, retrieved,
+     * bytes_retrieved, and expired events.
+     *
+     * @param Logger $logger
+     * @param MetricsService $metrics
+     * @return CallableRequestHandler
+     */
+    public static function metricsEndpoint(Logger $logger, MetricsService $metrics): CallableRequestHandler
+    {
+        return new CallableRequestHandler(function (Request $request) use ($logger, $metrics): Response {
+            $query = $request->getUri()->getQuery();
+            parse_str($query, $params);
+            $date = $params['date'] ?? '';
+
+            if ($date !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                return new Response(
+                    Status::UNPROCESSABLE_ENTITY,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'Invalid date format; expected YYYY-MM-DD'])
+                );
+            }
+
+            $logger->info(sprintf('Metrics requested for date: %s', $date ?: date('Y-m-d')));
+
+            return new Response(
+                Status::OK,
+                ['content-type' => 'application/json'],
+                json_encode($metrics->getMetrics($date))
             );
         });
     }
