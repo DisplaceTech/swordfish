@@ -34,15 +34,15 @@ class CreateSecretCommand extends Command
 
         $verifier = hash_pbkdf2('sha256', $password, SWORDFISH_PEPPER, 10000);
 
-        $payload = bin2hex($salt) . '$' . $verifier . '$' . $encrypted;
+        $encryptedSecret = bin2hex($salt) . '$' . $verifier . '$' . $encrypted;
 
         $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, "{$serverUrl}/create");
+        curl_setopt($ch, CURLOPT_URL, "{$serverUrl}/api/create");
         curl_setopt($ch, CURLOPT_USERAGENT, 'Swordfish CLI');
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: text/plain']);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['encrypted_secret' => $encryptedSecret]));
 
         $response = curl_exec($ch);
 
@@ -51,13 +51,25 @@ class CreateSecretCommand extends Command
             return Command::FAILURE;
         }
 
+        $parsed = json_decode($response, true);
+        if ($parsed !== null) {
+            if (isset($parsed['error'])) {
+                $output->writeln('Server error: ' . ($parsed['message'] ?? $parsed['error']));
+                return Command::FAILURE;
+            }
+            $secretId = $parsed['id'];
+        } else {
+            // v1 fallback: plain-text response is the secret ID
+            $secretId = $response;
+        }
+
         $output->writeln([
             'Secret Created',
             '==============',
-            'Secret ID: ' . $response,
+            'Secret ID: ' . $secretId,
             'Password:  ' . $password,
             '',
-            'URL:       ' . $serverUrl . '/secret/' . $response
+            'URL:       ' . $serverUrl . '/secret/' . $secretId
         ]);
 
         return Command::SUCCESS;
