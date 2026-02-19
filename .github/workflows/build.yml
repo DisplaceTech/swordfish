@@ -40,7 +40,7 @@ jobs:
         with:
           php-version: '8.4'
           extensions: pcntl
-          coverage: none
+          coverage: pcov
 
       - name: Install Composer dependencies
         working-directory: server
@@ -48,10 +48,16 @@ jobs:
 
       - name: Run PHPUnit tests
         working-directory: server
-        run: composer test
+        run: composer test -- --coverage-clover coverage/clover.xml
         env:
           REDIS_HOST: 127.0.0.1
           REDIS_PORT: 6379
+
+      - name: Upload PHP coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: php-coverage
+          path: server/coverage/clover.xml
 
   js-test:
     runs-on: ubuntu-latest
@@ -73,7 +79,13 @@ jobs:
 
       - name: Run Vitest tests
         working-directory: frontend
-        run: npm test
+        run: npm test -- --coverage
+
+      - name: Upload JS coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: js-coverage
+          path: frontend/coverage/
 
   build:
     runs-on: ubuntu-latest
