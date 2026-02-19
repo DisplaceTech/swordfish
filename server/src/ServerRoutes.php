@@ -3,6 +3,7 @@
 namespace Swordfish\Server;
 
 use Amp\Http\Server\Request;
+use Amp\Http\Server\RequestHandler;
 use Amp\Http\Server\RequestHandler\CallableRequestHandler;
 use Amp\Http\Server\Response;
 use Amp\Http\Server\Router;
@@ -13,7 +14,7 @@ use Predis\Client;
 class ServerRoutes
 {
     /**
-     * Create a callback that renders the main landing page for the site.
+     * Create a callback that serves the SPA index.html for the main landing page.
      *
      * @param Logger $logger
      * @return CallableRequestHandler
@@ -22,16 +23,13 @@ class ServerRoutes
     {
         return new CallableRequestHandler(function() use ($logger): Response {
             $logger->info('Main page load');
-
-            $fp = fopen(__DIR__ . '/../content/main.html', 'r');
-            $stream = stream_get_contents($fp);
-
-            return new Response(Status::OK, ['content-type' => 'text/html'], $stream);
+            $html = file_get_contents(__DIR__ . '/../static/index.html');
+            return new Response(Status::OK, ['content-type' => 'text/html'], $html);
         });
     }
 
     /**
-     * Create a callback that renders the secret retrieval landing page.
+     * Create a callback that serves the SPA index.html for secret retrieval routes.
      *
      * @param Logger $logger
      * @return CallableRequestHandler
@@ -47,10 +45,29 @@ class ServerRoutes
                 $logger->info(sprintf('Direct request for secret %s', $secretId));
             }
 
-            $fp = fopen(__DIR__ . '/../content/retrieve.html', 'r');
-            $stream = stream_get_contents($fp);
+            $html = file_get_contents(__DIR__ . '/../static/index.html');
+            return new Response(Status::OK, ['content-type' => 'text/html'], $html);
+        });
+    }
 
-            return new Response(Status::OK, ['content-type' => 'text/html'], $stream);
+    /**
+     * Create a fallback handler that serves static assets from DocumentRoot and falls back
+     * to the SPA index.html for any unmatched GET request (client-side routing support).
+     *
+     * @param Logger $logger
+     * @param RequestHandler $documentRoot
+     * @return CallableRequestHandler
+     */
+    public static function spaFallback(Logger $logger, RequestHandler $documentRoot): CallableRequestHandler
+    {
+        $indexHtml = file_get_contents(__DIR__ . '/../static/index.html');
+        return new CallableRequestHandler(function(Request $request) use ($logger, $documentRoot, $indexHtml) {
+            $response = yield $documentRoot->handleRequest($request);
+            if ($request->getMethod() === 'GET' && $response->getStatus() === Status::NOT_FOUND) {
+                $logger->info(sprintf('SPA fallback for %s', $request->getUri()->getPath()));
+                return new Response(Status::OK, ['content-type' => 'text/html'], $indexHtml);
+            }
+            return $response;
         });
     }
 
