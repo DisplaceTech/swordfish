@@ -11,7 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "preact": "^10.26.9"
+    "preact": "^10.26.9",
+    "preact-router": "^4.1.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.29.0",
