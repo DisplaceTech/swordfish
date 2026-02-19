@@ -24,28 +24,35 @@ class RateLimiterTest extends TestCase
         $redis->method('incr')->willReturn(1);
 
         $limiter = new RateLimiter($redis);
+        $result  = $limiter->isAllowed('192.168.1.1');
 
-        $this->assertTrue($limiter->isAllowed('192.168.1.1'));
+        $this->assertTrue($result['allowed']);
+        $this->assertSame(10, $result['limit']);
+        $this->assertSame(9, $result['remaining']);
     }
 
     public function testAllowsRequestAtExactLimit(): void
     {
         $redis = $this->makeRedisMock();
-        $redis->method('incr')->willReturn(30);
+        $redis->method('incr')->willReturn(10);
 
         $limiter = new RateLimiter($redis);
+        $result  = $limiter->isAllowed('192.168.1.1');
 
-        $this->assertTrue($limiter->isAllowed('192.168.1.1'));
+        $this->assertTrue($result['allowed']);
+        $this->assertSame(0, $result['remaining']);
     }
 
     public function testDeniesRequestWhenLimitExceeded(): void
     {
         $redis = $this->makeRedisMock();
-        $redis->method('incr')->willReturn(31);
+        $redis->method('incr')->willReturn(11);
 
         $limiter = new RateLimiter($redis);
+        $result  = $limiter->isAllowed('192.168.1.1');
 
-        $this->assertFalse($limiter->isAllowed('192.168.1.1'));
+        $this->assertFalse($result['allowed']);
+        $this->assertSame(0, $result['remaining']);
     }
 
     public function testSetsExpireOnFirstRequest(): void
