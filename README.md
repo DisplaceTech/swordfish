@@ -163,6 +163,10 @@ The following table lists the configurable parameters for the Helm chart:
 | `server.imagePullSecrets.github.token` | GitHub PAT for pull secret | `""` |
 | `server.service.type` | Kubernetes service type | `ClusterIP` |
 | `server.service.port` | Service port | `8080` |
+| `keel.policy` | Keel update policy (`force`, `semver`, `glob`) | `force` |
+| `keel.trigger` | Keel trigger type (`poll`, `pubsub`) | `poll` |
+| `keel.pollSchedule` | Poll schedule (cron or `@every` syntax); used when trigger is `poll` | `@every 5m` |
+| `keel.matchTag` | Only update when the new image tag matches the deployed tag | `true` |
 | `redis.architecture` | Redis architecture | `standalone` |
 | `redis.auth.enabled` | Enable Redis authentication | `false` |
 | `ingress.enabled` | Enable ingress | `false` |
@@ -240,6 +244,49 @@ The project uses GitHub Actions to automatically build and push the server conta
 #### Container Registry Cleanup
 
 GitHub Container Registry provides automatic cleanup of untagged container images after 30 days. The `latest` tag and any specific version tags are preserved indefinitely.
+
+### Automated Deployment with Keel
+
+The Helm chart includes [Keel](https://keel.sh) annotations on the Deployment, enabling automatic rollout of new images without manual `helm upgrade` runs.
+
+#### How It Works
+
+When a new image is pushed to GHCR (e.g., on every merge to `main`), Keel detects the update and triggers a rolling restart of the Deployment to pull the new image.
+
+The default configuration uses the `force` policy with polling:
+
+| Annotation | Value | Meaning |
+|---|---|---|
+| `keel.sh/policy` | `force` | Always pull the latest image, regardless of tag changes |
+| `keel.sh/trigger` | `poll` | Keel polls the registry on a schedule |
+| `keel.sh/pollSchedule` | `@every 5m` | Check for new images every 5 minutes |
+| `keel.sh/match-tag` | `true` | Only update when the new image matches the currently deployed tag |
+
+#### Policy Options
+
+- **`force`** — Suitable for `latest`-tagged images. Keel re-pulls and restarts whenever a new digest is detected at the same tag.
+- **`semver`** — Suitable for semantically versioned tags (e.g., `1.2.3`). Keel upgrades within the configured constraint.
+- **`glob`** — Suitable for pattern-matched tags (e.g., `sha-*`). Keel updates when a new tag matching the glob is pushed.
+
+#### Customizing Keel Behavior
+
+Override the defaults in your `values.yaml`:
+
+```yaml
+keel:
+  # Use semver policy for tagged releases
+  policy: "semver"
+  trigger: "poll"
+  pollSchedule: "@every 10m"
+  matchTag: "true"
+```
+
+To disable Keel automation entirely, set `keel.policy` to `none`:
+
+```yaml
+keel:
+  policy: "none"
+```
 
 #### Required Setup
 
