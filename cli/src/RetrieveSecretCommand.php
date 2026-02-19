@@ -14,7 +14,7 @@ class RetrieveSecretCommand extends Command
     {
         $this->setDescription('Retrieves an encrypted secret from the server.')
             ->setHelp('This command allows you to retrieve a secret from the server and decrypt it locally.')
-            ->addArgument('secret-id', InputArgument::REQUIRED, 'ID of the secret to retrieve.')
+            ->addArgument('secret-id', InputArgument::REQUIRED, 'Compound secret ID (secretID:verifier) returned at creation time.')
             ->addArgument('password', InputArgument::REQUIRED, 'User-friendly password used to protect the secret.');
     }
 
@@ -23,38 +23,48 @@ class RetrieveSecretCommand extends Command
         $serverUrl = getenv('SWORDFISH_URL') ?: 'https://swordfish.displace.tech';
 
         $password = $input->getArgument('password');
-        $secretId = $input->getArgument('secret-id');
+        $compoundId = $input->getArgument('secret-id');
 
-        // Authenticate against the server to get the encrypted secret
-        $verifier = hash_pbkdf2('sha256', $password, SWORDFISH_PEPPER, 10000);
-        $payload = $secretId . '$' . $verifier;
+        [$secretId, $verifier] = array_pad(explode(':', $compoundId, 2), 2, '');
+
+        $payload = json_encode(['id' => $secretId, 'verifier' => $verifier]);
 
         $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, "{$serverUrl}/retrieve");
+        curl_setopt($ch, CURLOPT_URL, "{$serverUrl}/api/retrieve");
         curl_setopt($ch, CURLOPT_USERAGENT, 'Swordfish CLI');
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: text/plain']);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_POST, 1);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
 
         $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
 
         if ($response === false) {
-            $output->writeln('Network error: ' . curl_error($ch));
+            $output->writeln('Network error: ' . $curlError);
             return Command::FAILURE;
         }
 
-        if ($response === "Not found or expired") {
+        $parsed = json_decode($response, true);
+
+        if ($httpCode === 404 || (isset($parsed['error']) && $parsed['error'] === 'Not found or expired')) {
             $output->writeln('Secret is either not found or expired!');
             return Command::FAILURE;
         }
 
-        if ($response === "Invalid authorization") {
+        if ($httpCode === 401 || (isset($parsed['error']) && $parsed['error'] === 'Invalid authorization')) {
             $output->writeln('Invalid password!');
             return Command::FAILURE;
         }
 
-        $decoded = hex2bin($response);
+        if ($httpCode !== 200 || !isset($parsed['encrypted_secret'])) {
+            $output->writeln('Unexpected server response!');
+            return Command::FAILURE;
+        }
+
+        $decoded = hex2bin($parsed['encrypted_secret']);
         $salt = substr($decoded, 0, 16);
         $encrypted = substr($decoded, 16);
 

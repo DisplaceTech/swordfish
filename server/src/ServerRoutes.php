@@ -134,6 +134,86 @@ class ServerRoutes
     }
 
     /**
+     * Process a JSON API secret creation request.
+     *
+     * Accepts: {"encrypted_secret": "...", "ttl": 86400, "max_views": 5}
+     * Returns: {"id": "secretID:verifier", "expires_at": T, "max_views": N}
+     *
+     * The returned `id` is a compound "secretID:verifier" string. The client must
+     * split on ":" to obtain the secretID and verifier for the retrieve endpoint.
+     *
+     * @param Logger $logger
+     * @param Client $redisClient
+     * @return CallableRequestHandler
+     */
+    public static function createSecretJson(Logger $logger, Client $redisClient): CallableRequestHandler
+    {
+        $service = new SecretService($redisClient);
+        return new CallableRequestHandler(function(Request $request) use ($logger, $service) {
+            $data = yield $request->getBody()->read();
+
+            if (strlen($data) > 100 * 1000) {
+                $logger->error('JSON create payload too large');
+                return new Response(
+                    Status::PAYLOAD_TOO_LARGE,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'Payload Too Large', 'message' => 'Request body exceeds the 100 KB limit.'])
+                );
+            }
+
+            $parsed = json_decode($data, true);
+            if ($parsed === null || !isset($parsed['encrypted_secret'])) {
+                $logger->error('Unable to decode JSON create request');
+                return new Response(
+                    Status::BAD_REQUEST,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'Bad Request', 'message' => 'Request body must be valid JSON with an encrypted_secret field.'])
+                );
+            }
+
+            $encryptedSecret = $parsed['encrypted_secret'];
+            $ttl             = isset($parsed['ttl']) ? (int) $parsed['ttl'] : CreateRequest::DEFAULT_TTL;
+            $maxViews        = isset($parsed['max_views']) ? (int) $parsed['max_views'] : 1;
+
+            if ($ttl < 1 || $ttl > CreateRequest::MAX_TTL) {
+                $logger->error(sprintf('Invalid TTL %d in JSON create request', $ttl));
+                return new Response(
+                    Status::UNPROCESSABLE_ENTITY,
+                    ['content-type' => 'application/json'],
+                    json_encode([
+                        'error'   => 'Unprocessable Entity',
+                        'message' => sprintf('ttl must be between 1 and %d seconds.', CreateRequest::MAX_TTL),
+                    ])
+                );
+            }
+
+            if ($maxViews < 1) {
+                $logger->error(sprintf('Invalid max_views %d in JSON create request', $maxViews));
+                return new Response(
+                    Status::UNPROCESSABLE_ENTITY,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'Unprocessable Entity', 'message' => 'max_views must be at least 1.'])
+                );
+            }
+
+            try {
+                $result = $service->createJson($encryptedSecret, $ttl, $maxViews);
+            } catch (\Exception $e) {
+                $logger->error('Failed to store JSON secret: ' . $e->getMessage());
+                return new Response(
+                    Status::SERVICE_UNAVAILABLE,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'Service Unavailable', 'message' => 'Unable to store secret. Please try again.'])
+                );
+            }
+
+            $logger->info(sprintf('Created JSON secret %s', explode(':', $result['id'])[0]));
+
+            return new Response(Status::CREATED, ['content-type' => 'application/json'], json_encode($result));
+        });
+    }
+
+    /**
      * Check Redis connectivity and return service health status.
      *
      * @param Logger $logger

@@ -95,6 +95,35 @@ class SecretService
     }
 
     /**
+     * Store a new JSON-API secret and generate a random verifier.
+     *
+     * Generates a random 12-character hex ID and a random 32-character hex verifier,
+     * stores all four JSON-API keys in Redis, and returns the compound ID and metadata.
+     *
+     * @param string $encryptedSecret Client-side encrypted secret payload (hex-encoded)
+     * @param int    $ttl             Lifetime in seconds
+     * @param int    $maxViews        Maximum number of retrieval views
+     * @return array{id: string, expires_at: int, max_views: int}
+     */
+    public function createJson(string $encryptedSecret, int $ttl, int $maxViews): array
+    {
+        $secretID  = bin2hex(random_bytes(6));
+        $verifier  = bin2hex(random_bytes(16));
+        $expiresAt = time() + $ttl;
+
+        $this->redis->setex("json_verifier:{$secretID}", $ttl,      password_hash($verifier, PASSWORD_DEFAULT));
+        $this->redis->setex("json_secret:{$secretID}",   $ttl + 30, $encryptedSecret);
+        $this->redis->setex("json_views:{$secretID}",    $ttl,      (string) $maxViews);
+        $this->redis->setex("json_expires:{$secretID}",  $ttl,      (string) $expiresAt);
+
+        return [
+            'id'         => "{$secretID}:{$verifier}",
+            'expires_at' => $expiresAt,
+            'max_views'  => $maxViews,
+        ];
+    }
+
+    /**
      * Retrieve a JSON-API secret after verifying the supplied verifier.
      *
      * Decrements the view counter and deletes all associated keys when views

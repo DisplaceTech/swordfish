@@ -87,6 +87,89 @@ class SecretServiceTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
+    // createJson()
+    // -------------------------------------------------------------------------
+
+    public function testCreateJsonStoresFourKeysInRedis(): void
+    {
+        $redis = $this->makeRedisMock();
+
+        $redis->expects($this->exactly(4))
+            ->method('setex')
+            ->willReturnCallback(function (string $key, int $ttl, string $value) {
+                $this->assertGreaterThan(0, $ttl);
+                $this->assertNotEmpty($value);
+            });
+
+        $service = new SecretService($redis);
+        $result  = $service->createJson('encrypted-payload', 3600, 5);
+
+        $this->assertArrayHasKey('id', $result);
+        $this->assertArrayHasKey('expires_at', $result);
+        $this->assertArrayHasKey('max_views', $result);
+        $this->assertSame(5, $result['max_views']);
+        $this->assertStringContainsString(':', $result['id']);
+    }
+
+    public function testCreateJsonIdContainsSecretIdAndVerifier(): void
+    {
+        $redis = $this->makeRedisMock();
+        $redis->method('setex');
+
+        $service = new SecretService($redis);
+        $result  = $service->createJson('encrypted-payload', 3600, 1);
+
+        [$secretID, $verifier] = explode(':', $result['id'], 2);
+
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{12}$/', $secretID);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{32}$/', $verifier);
+    }
+
+    public function testCreateJsonExpiresAtIsApproximatelyNowPlusTtl(): void
+    {
+        $redis = $this->makeRedisMock();
+        $redis->method('setex');
+
+        $service   = new SecretService($redis);
+        $ttl       = 7200;
+        $before    = time();
+        $result    = $service->createJson('encrypted-payload', $ttl, 1);
+        $after     = time();
+
+        $this->assertGreaterThanOrEqual($before + $ttl, $result['expires_at']);
+        $this->assertLessThanOrEqual($after + $ttl, $result['expires_at']);
+    }
+
+    public function testCreateJsonUsesCorrectTtlsForRedisKeys(): void
+    {
+        $redis = $this->makeRedisMock();
+
+        $capturedCalls = [];
+        $redis->expects($this->exactly(4))
+            ->method('setex')
+            ->willReturnCallback(function (string $key, int $ttl, string $value) use (&$capturedCalls) {
+                $capturedCalls[] = ['key' => $key, 'ttl' => $ttl];
+            });
+
+        $service = new SecretService($redis);
+        $service->createJson('encrypted-payload', 3600, 2);
+
+        $byPrefix = [];
+        foreach ($capturedCalls as $call) {
+            foreach (['json_verifier', 'json_secret', 'json_views', 'json_expires'] as $prefix) {
+                if (str_starts_with($call['key'], $prefix . ':')) {
+                    $byPrefix[$prefix] = $call['ttl'];
+                }
+            }
+        }
+
+        $this->assertSame(3600, $byPrefix['json_verifier']);
+        $this->assertSame(3630, $byPrefix['json_secret']);
+        $this->assertSame(3600, $byPrefix['json_views']);
+        $this->assertSame(3600, $byPrefix['json_expires']);
+    }
+
+    // -------------------------------------------------------------------------
     // retrieve()
     // -------------------------------------------------------------------------
 

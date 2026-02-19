@@ -30,19 +30,16 @@ class CreateSecretCommand extends Command
         $nonce = random_bytes(SODIUM_CRYPTO_AEAD_AES256GCM_NPUBBYTES);
         $ciphertext = sodium_crypto_aead_aes256gcm_encrypt($secret, '', $nonce, $key);
 
-        $encrypted = bin2hex($nonce . $ciphertext);
-
-        $verifier = hash_pbkdf2('sha256', $password, SWORDFISH_PEPPER, 10000);
-
-        $payload = bin2hex($salt) . '$' . $verifier . '$' . $encrypted;
+        $encryptedSecret = bin2hex($salt . $nonce . $ciphertext);
+        $jsonPayload = json_encode(['encrypted_secret' => $encryptedSecret]);
 
         $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, "{$serverUrl}/create");
+        curl_setopt($ch, CURLOPT_URL, "{$serverUrl}/api/create");
         curl_setopt($ch, CURLOPT_USERAGENT, 'Swordfish CLI');
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: text/plain']);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload);
 
         $response = curl_exec($ch);
 
@@ -51,13 +48,58 @@ class CreateSecretCommand extends Command
             return Command::FAILURE;
         }
 
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode === 404) {
+            $verifier = hash_pbkdf2('sha256', $password, SWORDFISH_PEPPER, 10000);
+            $legacyPayload = bin2hex($salt) . '$' . $verifier . '$' . bin2hex($nonce . $ciphertext);
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "{$serverUrl}/create");
+            curl_setopt($ch, CURLOPT_USERAGENT, 'Swordfish CLI');
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: text/plain']);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $legacyPayload);
+
+            $response = curl_exec($ch);
+
+            if ($response === false) {
+                $output->writeln('Network error: ' . curl_error($ch));
+                return Command::FAILURE;
+            }
+
+            curl_close($ch);
+
+            $output->writeln([
+                'Secret Created',
+                '==============',
+                'Secret ID: ' . $response,
+                'Password:  ' . $password,
+                '',
+                'URL:       ' . $serverUrl . '/secret/' . $response
+            ]);
+
+            return Command::SUCCESS;
+        }
+
+        $parsed = json_decode($response, true);
+
+        if ($httpCode !== 201 || !isset($parsed['id'])) {
+            $output->writeln('Unexpected server response!');
+            return Command::FAILURE;
+        }
+
+        $compoundId = $parsed['id'];
+        $secretID = explode(':', $compoundId, 2)[0];
+
         $output->writeln([
             'Secret Created',
             '==============',
-            'Secret ID: ' . $response,
-            'Password:  ' . $password,
+            'Secret ID: ' . $compoundId,
             '',
-            'URL:       ' . $serverUrl . '/secret/' . $response
+            'URL:       ' . $serverUrl . '/secret/' . $secretID
         ]);
 
         return Command::SUCCESS;
