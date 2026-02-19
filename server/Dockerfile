@@ -1,13 +1,21 @@
-# Composer builder
-FROM composer:latest AS builder
+# Node.js builder for SPA
+FROM node:20-alpine AS spa-builder
 
-# Set up build directory
 WORKDIR /build
 
-# Copy only composer files first
-COPY . /build
+COPY frontend/package*.json ./frontend/
+RUN cd frontend && npm ci
 
-# Install dependencies
+COPY frontend/ ./frontend/
+RUN cd frontend && npm run build
+# Output lands at /build/server/static/dist/ (per vite.config.js outDir: '../server/static/dist')
+
+# Composer builder
+FROM composer:latest AS composer-builder
+
+WORKDIR /build
+
+COPY server/ /build
 RUN composer install --ignore-platform-reqs --no-scripts
 
 # PHP runtime
@@ -22,8 +30,10 @@ RUN docker-php-ext-install pcntl
 WORKDIR /var/www/html
 
 # Copy application files
-COPY . /var/www/html/
-COPY --from=builder /build/vendor/ /var/www/html/vendor/
+COPY server/ /var/www/html/
+COPY --from=composer-builder /build/vendor/ /var/www/html/vendor/
+# Overwrite any pre-committed dist/ with the freshly built SPA assets
+COPY --from=spa-builder /build/server/static/dist/ /var/www/html/static/dist/
 
 # Fix permissions
 RUN chown -R www-data:www-data /var/www/html \
@@ -34,4 +44,4 @@ ENV SERVER_PORT=8080
 
 EXPOSE 8080
 
-CMD ["php", "server.php"] 
+CMD ["php", "server.php"]
