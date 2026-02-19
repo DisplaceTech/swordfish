@@ -115,15 +115,16 @@ class SecretServiceIntegrationTest extends TestCase
 
     public function testJsonCreateAndRetrieveRoundTrip(): void
     {
-        $verifier = str_repeat('v', 32);
-        $secret   = 'my-json-secret-payload';
+        $rawVerifier = str_repeat('v', 32);
+        $hexVerifier = bin2hex($rawVerifier);
+        $secret      = 'my-json-secret-payload';
 
         $service = $this->makeService();
-        $id      = $service->createJson($this->makeRequest($verifier, $secret));
+        $id      = $service->createJson($this->makeRequest($rawVerifier, $secret));
 
         $this->assertMatchesRegularExpression('/^[0-9a-f]{12}$/', $id);
 
-        $result = $service->retrieveJson($id, $verifier);
+        $result = $service->retrieveJson($id, $hexVerifier);
 
         $this->assertArrayHasKey('encrypted_secret', $result);
         $this->assertArrayHasKey('views_remaining', $result);
@@ -135,12 +136,12 @@ class SecretServiceIntegrationTest extends TestCase
 
     public function testJsonRetrieveWithWrongVerifierThrowsInvalidVerifier(): void
     {
-        $verifier = str_repeat('v', 32);
-        $service  = $this->makeService();
-        $id       = $service->createJson($this->makeRequest($verifier, 'payload'));
+        $rawVerifier = str_repeat('v', 32);
+        $service     = $this->makeService();
+        $id          = $service->createJson($this->makeRequest($rawVerifier, 'payload'));
 
         $this->expectException(InvalidVerifierException::class);
-        $service->retrieveJson($id, str_repeat('x', 32));
+        $service->retrieveJson($id, bin2hex(str_repeat('x', 32)));
     }
 
     public function testJsonRetrieveNonExistentSecretThrowsSecretNotFound(): void
@@ -148,7 +149,7 @@ class SecretServiceIntegrationTest extends TestCase
         $service = $this->makeService();
 
         $this->expectException(SecretNotFoundException::class);
-        $service->retrieveJson('000000000000', str_repeat('v', 32));
+        $service->retrieveJson('000000000000', bin2hex(str_repeat('v', 32)));
     }
 
     // -------------------------------------------------------------------------
@@ -157,43 +158,46 @@ class SecretServiceIntegrationTest extends TestCase
 
     public function testViewLimitOfOneExhaustsAfterSingleRetrieval(): void
     {
-        $verifier = str_repeat('v', 32);
-        $service  = $this->makeService();
-        $id       = $service->createJson($this->makeRequest($verifier, 'payload', 3600, 1));
+        $rawVerifier = str_repeat('v', 32);
+        $hexVerifier = bin2hex($rawVerifier);
+        $service     = $this->makeService();
+        $id          = $service->createJson($this->makeRequest($rawVerifier, 'payload', 3600, 1));
 
-        $result = $service->retrieveJson($id, $verifier);
+        $result = $service->retrieveJson($id, $hexVerifier);
         $this->assertSame(0, $result['views_remaining']);
 
         $this->expectException(SecretNotFoundException::class);
-        $service->retrieveJson($id, $verifier);
+        $service->retrieveJson($id, $hexVerifier);
     }
 
     public function testViewLimitOfThreeDecrementsCorrectly(): void
     {
-        $verifier = str_repeat('v', 32);
-        $service  = $this->makeService();
-        $id       = $service->createJson($this->makeRequest($verifier, 'payload', 3600, 3));
+        $rawVerifier = str_repeat('v', 32);
+        $hexVerifier = bin2hex($rawVerifier);
+        $service     = $this->makeService();
+        $id          = $service->createJson($this->makeRequest($rawVerifier, 'payload', 3600, 3));
 
-        $first  = $service->retrieveJson($id, $verifier);
-        $second = $service->retrieveJson($id, $verifier);
-        $third  = $service->retrieveJson($id, $verifier);
+        $first  = $service->retrieveJson($id, $hexVerifier);
+        $second = $service->retrieveJson($id, $hexVerifier);
+        $third  = $service->retrieveJson($id, $hexVerifier);
 
         $this->assertSame(2, $first['views_remaining']);
         $this->assertSame(1, $second['views_remaining']);
         $this->assertSame(0, $third['views_remaining']);
 
         $this->expectException(SecretNotFoundException::class);
-        $service->retrieveJson($id, $verifier);
+        $service->retrieveJson($id, $hexVerifier);
     }
 
     public function testUnlimitedViewsSecretCanBeRetrievedMultipleTimes(): void
     {
-        $verifier = str_repeat('v', 32);
-        $service  = $this->makeService();
-        $id       = $service->createJson($this->makeRequest($verifier, 'payload', 3600, 0));
+        $rawVerifier = str_repeat('v', 32);
+        $hexVerifier = bin2hex($rawVerifier);
+        $service     = $this->makeService();
+        $id          = $service->createJson($this->makeRequest($rawVerifier, 'payload', 3600, 0));
 
         for ($i = 0; $i < 5; $i++) {
-            $result = $service->retrieveJson($id, $verifier);
+            $result = $service->retrieveJson($id, $hexVerifier);
             $this->assertNull($result['views_remaining']);
             $this->assertNotEmpty($result['encrypted_secret']);
         }
@@ -217,14 +221,15 @@ class SecretServiceIntegrationTest extends TestCase
 
     public function testJsonSecretExpiresAfterTtl(): void
     {
-        $verifier = str_repeat('v', 32);
-        $service  = $this->makeService();
-        $id       = $service->createJson($this->makeRequest($verifier, 'payload', 1));
+        $rawVerifier = str_repeat('v', 32);
+        $hexVerifier = bin2hex($rawVerifier);
+        $service     = $this->makeService();
+        $id          = $service->createJson($this->makeRequest($rawVerifier, 'payload', 1));
 
         sleep(2);
 
         $this->expectException(SecretNotFoundException::class);
-        $service->retrieveJson($id, $verifier);
+        $service->retrieveJson($id, $hexVerifier);
     }
 
     // -------------------------------------------------------------------------
@@ -257,14 +262,15 @@ class SecretServiceIntegrationTest extends TestCase
 
     public function testGetInfoDoesNotConsumeAView(): void
     {
-        $verifier = str_repeat('v', 32);
-        $service  = $this->makeService();
-        $id       = $service->createJson($this->makeRequest($verifier, 'payload', 3600, 1));
+        $rawVerifier = str_repeat('v', 32);
+        $hexVerifier = bin2hex($rawVerifier);
+        $service     = $this->makeService();
+        $id          = $service->createJson($this->makeRequest($rawVerifier, 'payload', 3600, 1));
 
         $service->getInfo($id);
         $service->getInfo($id);
 
-        $result = $service->retrieveJson($id, $verifier);
+        $result = $service->retrieveJson($id, $hexVerifier);
         $this->assertSame(0, $result['views_remaining']);
     }
 

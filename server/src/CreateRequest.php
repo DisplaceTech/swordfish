@@ -30,7 +30,7 @@ class CreateRequest
      */
     public function verifier(): string
     {
-        return password_hash($this->verifier, PASSWORD_DEFAULT);
+        return password_hash(bin2hex($this->verifier), PASSWORD_DEFAULT);
     }
 
     /**

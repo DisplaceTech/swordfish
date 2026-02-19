@@ -125,7 +125,7 @@ LUA;
             throw new SecretNotFoundException(sprintf('Verification code for secret %s not found.', $secretID));
         }
 
-        if (!password_verify($verifier, $hash)) {
+        if (!password_verify(bin2hex($verifier), $hash)) {
             throw new InvalidVerifierException(sprintf('Invalid verifier for secret %s.', $secretID));
         }
 

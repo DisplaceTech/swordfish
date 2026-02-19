@@ -114,7 +114,7 @@ describe('Create — submission flow', () => {
     fireEvent.submit(screen.getByRole('button', { name: 'Encrypt & Create Secret' }).closest('form'))
 
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Secret Created')
-    const linkInput = screen.getByDisplayValue(/\/secret\/abc123#/)
+    const linkInput = screen.getByDisplayValue(/\/secret\/abc123$/)
     expect(linkInput).toBeInTheDocument()
     expect(screen.getByText(/abc123/)).toBeInTheDocument()
   })
@@ -189,7 +189,7 @@ describe('Create — success state interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-        expect.stringContaining('/secret/abc123#')
+        expect.stringMatching(/\/secret\/abc123$/)
       )
     })
   })
