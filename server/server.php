@@ -36,6 +36,19 @@ Amp\Loop::run(function () {
     $metrics = new Swordfish\Server\MetricsService($redisClient);
 
     $documentRoot = new DocumentRoot(__DIR__ . '/static');
+    $documentRoot->setMimeTypes([
+        'js'   => 'application/javascript',
+        'mjs'  => 'application/javascript',
+        'css'  => 'text/css',
+        'html' => 'text/html',
+        'json' => 'application/json',
+        'svg'  => 'image/svg+xml',
+        'png'  => 'image/png',
+        'ico'  => 'image/x-icon',
+        'webmanifest' => 'application/manifest+json',
+        'woff'  => 'font/woff',
+        'woff2' => 'font/woff2',
+    ]);
     $router = new Router();
 
     /***********************************************************/
