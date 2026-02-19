@@ -197,6 +197,43 @@ paths:
               message:
                 type: "string"
                 example: "TTL must be one of: 3600, 21600, 86400, 259200, 604800 seconds."
+  /api/secret/{secretId}/info:
+    get:
+      summary: "Get secret metadata without consuming a view."
+      tags:
+        - "api"
+      produces:
+        - "application/json"
+      parameters:
+        - name: "secretId"
+          in: "path"
+          description: "ID of the secret"
+          required: true
+          type: "string"
+      responses:
+        "200":
+          description: "OK"
+          schema:
+            type: "object"
+            properties:
+              views_remaining:
+                type: "integer"
+                description: "Number of views remaining; null for unlimited secrets"
+                x-nullable: true
+              expires_at:
+                type: "integer"
+                description: "Unix timestamp when the secret expires"
+        "404":
+          description: "Not Found"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+                example: "Not Found"
+              message:
+                type: "string"
+                example: "Not found or expired"
   /api/retrieve:
     post:
       summary: "Retrieve a secret from the datastore."

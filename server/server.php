@@ -53,6 +53,7 @@ Amp\Loop::run(function () {
 
     $router->addRoute('POST', '/api/create', ServerRoutes::createSecret($logger, $redisClient, $metrics));
     $router->addRoute('POST', '/create', ServerRoutes::redirectCreate($logger));
+    $router->addRoute('GET', '/api/secret/{secretId}/info', ServerRoutes::secretInfo($logger, $redisClient));
     $router->addRoute('POST', '/api/retrieve', ServerRoutes::retrieveSecretJson($logger, $redisClient, $metrics));
     $router->addRoute('POST', '/retrieve', ServerRoutes::redirectRetrieve($logger));
 

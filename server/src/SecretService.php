@@ -138,6 +138,36 @@ LUA;
     }
 
     /**
+     * Return metadata for a JSON-API secret without consuming a view.
+     *
+     * Reads views_remaining and expires_at from Redis without decrementing
+     * the view counter or requiring the passphrase/verifier.
+     *
+     * @param string $secretID
+     * @return array{views_remaining: int|null, expires_at: int}
+     *
+     * @throws SecretNotFoundException When no secret with the given ID exists
+     */
+    public function getInfo(string $secretID): array
+    {
+        $expiresKey = "json_expires:{$secretID}";
+        $viewsKey   = "json_views:{$secretID}";
+
+        $expiresAt = $this->redis->get($expiresKey);
+        if ($expiresAt === null) {
+            throw new SecretNotFoundException(sprintf('JSON secret %s not found.', $secretID));
+        }
+
+        $views          = $this->redis->get($viewsKey);
+        $viewsRemaining = $views !== null ? (int) $views : null;
+
+        return [
+            'views_remaining' => $viewsRemaining,
+            'expires_at'      => (int) $expiresAt,
+        ];
+    }
+
+    /**
      * Retrieve a JSON-API secret after verifying the supplied verifier.
      *
      * Decrements the view counter and deletes all associated keys when views

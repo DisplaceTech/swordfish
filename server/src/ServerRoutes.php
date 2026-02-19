@@ -158,6 +158,43 @@ class ServerRoutes
     }
 
     /**
+     * Return metadata for a secret without consuming a view or requiring a passphrase.
+     *
+     * Returns: {"views_remaining": N|null, "expires_at": T}
+     * Returns 404 when no secret with the given ID exists.
+     *
+     * @param Logger $logger
+     * @param Client $redisClient
+     * @return CallableRequestHandler
+     */
+    public static function secretInfo(Logger $logger, Client $redisClient): CallableRequestHandler
+    {
+        $service = new SecretService($redisClient);
+        return new CallableRequestHandler(function(Request $request) use ($logger, $service): Response {
+            $args     = $request->getAttribute(Router::class);
+            $secretID = $args['secretId'] ?? '';
+
+            try {
+                $info = $service->getInfo($secretID);
+            } catch (SecretNotFoundException $e) {
+                $logger->info(sprintf('Info request for unknown secret %s', $secretID));
+                return new Response(
+                    Status::NOT_FOUND,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'Not Found', 'message' => 'Not found or expired'])
+                );
+            }
+
+            $logger->info(sprintf('Info request for secret %s', $secretID));
+            return new Response(
+                Status::OK,
+                ['content-type' => 'application/json'],
+                json_encode($info)
+            );
+        });
+    }
+
+    /**
      * Check Redis connectivity and return service health status.
      *
      * @param Logger $logger
