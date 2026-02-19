@@ -55,51 +55,97 @@ paths:
         "200":
           description: "OK"
 
-  /api/create:
+  /create:
     post:
       summary: "Create a new secret in the datastore."
       tags:
         - "api"
       consumes:
+        - "application/json"
         - "text/plain"
       produces:
+        - "application/json"
         - "text/plain"
       parameters:
         - in: "body"
           name: "body"
-          description: "Serialized secret to store in the server"
+          description: "Secret to store. Use application/json for the new format or text/plain for the legacy format."
           required: true
           schema:
-            type: "string"
+            type: "object"
+            required:
+              - "encrypted_secret"
+            properties:
+              encrypted_secret:
+                type: "string"
+                description: "Client-side encrypted secret payload."
+              ttl:
+                type: "integer"
+                description: "Time-to-live in seconds (default: 86400)."
+                default: 86400
+              max_views:
+                type: "integer"
+                description: "Maximum number of times the secret may be retrieved (default: 1)."
+                default: 1
       responses:
         "201":
           description: "Created"
+          schema:
+            type: "object"
+            properties:
+              id:
+                type: "string"
+                description: "Unique identifier for the stored secret."
+              expires_at:
+                type: "integer"
+                description: "Unix timestamp when the secret expires."
+              max_views:
+                type: "integer"
+                description: "Maximum number of allowed retrievals."
         "400":
           description: "Bad Request"
         "413":
           description: "Payload Too Large"
-  /api/retrieve:
+  /retrieve:
     post:
       summary: "Retrieve a secret from the datastore."
       tags:
         - "api"
       consumes:
+        - "application/json"
         - "text/plain"
       produces:
+        - "application/json"
         - "text/plain"
       parameters:
         - in: "body"
           name: "body"
-          description: "Serialized authentication request for a stored secret"
+          description: "Retrieval request. Use application/json for the new format or text/plain for the legacy format."
           required: true
           schema:
-            type: "string"
+            type: "object"
+            required:
+              - "id"
+            properties:
+              id:
+                type: "string"
+                description: "ID of the secret to retrieve."
       responses:
         "200":
           description: "OK"
+          schema:
+            type: "object"
+            properties:
+              encrypted_secret:
+                type: "string"
+                description: "Client-side encrypted secret payload."
+              views_remaining:
+                type: "integer"
+                description: "Number of retrievals remaining after this one."
+              expires_at:
+                type: "integer"
+                description: "Unix timestamp when the secret expires."
         "400":
           description: "Bad Request"
-        "401":
-          description: "Unauthorized"
         "404":
           description: "Not Found"
