@@ -127,27 +127,76 @@ paths:
       tags:
         - "api"
       consumes:
-        - "text/plain"
+        - "application/json"
       produces:
-        - "text/plain"
+        - "application/json"
       parameters:
         - in: "body"
           name: "body"
-          description: |
-            Serialized secret to store in the server. Format: hex(salt)$hex(verifier)$hex(secret)[$ttl]
-            The optional TTL field specifies the secret lifetime in seconds (1–604800). Defaults to 86400.
+          description: "JSON request to store a new encrypted secret."
           required: true
           schema:
-            type: "string"
+            type: "object"
+            required:
+              - "encrypted_secret"
+              - "verifier"
+            properties:
+              encrypted_secret:
+                type: "string"
+                description: "Client-side AES-GCM ciphertext (hex-encoded salt + nonce + ciphertext)"
+              verifier:
+                type: "string"
+                description: "PBKDF2-derived verifier used to authenticate retrieval requests"
+              ttl:
+                type: "integer"
+                description: "Secret lifetime in seconds. Must be one of: 3600, 86400, 604800. Defaults to 86400."
+                default: 86400
+                enum:
+                  - 3600
+                  - 86400
+                  - 604800
+              max_views:
+                type: "integer"
+                description: "Maximum number of times the secret may be retrieved. Must be one of: 1, 5, 10, or omitted/null for unlimited."
+                enum:
+                  - 1
+                  - 5
+                  - 10
       responses:
         "201":
           description: "Created"
+          schema:
+            type: "object"
+            properties:
+              id:
+                type: "string"
+                description: "Secret ID assigned by the server"
+                example: "a1b2c3d4e5f6"
+              expires_at:
+                type: "string"
+                format: "date-time"
+                description: "ISO 8601 timestamp when the secret expires"
+                example: "2024-01-16T12:00:00+00:00"
+              max_views:
+                type: "integer"
+                description: "Maximum retrieval count, or null for unlimited"
+                example: 5
         "400":
-          description: "Bad Request"
+          description: "Bad Request — missing required fields, invalid ttl, or invalid max_views"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+                example: "ttl must be one of: 3600, 86400, 604800"
         "413":
           description: "Payload Too Large"
-        "422":
-          description: "Unprocessable Entity — TTL out of range"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+                example: "Payload Too Large"
   /api/retrieve:
     post:
       summary: "Retrieve a secret from the datastore."

@@ -99,8 +99,19 @@ class ServerRoutes
         });
     }
 
+    private const ALLOWED_TTLS       = [3600, 86400, 604800];
+    private const ALLOWED_MAX_VIEWS  = [1, 5, 10];
+    private const DEFAULT_TTL        = 86400;
+
     /**
-     * Process a secret creation request and attempt to create the secret.
+     * Process a JSON secret creation request, validate inputs, store the secret,
+     * and return a JSON response with id, expires_at (ISO 8601), and max_views.
+     *
+     * Accepted JSON fields:
+     *   - encrypted_secret (string, required)
+     *   - verifier         (string, required)
+     *   - ttl              (int, optional, default 86400; must be one of 3600|86400|604800)
+     *   - max_views        (int|null, optional, default null; must be one of 1|5|10|null)
      *
      * @param Logger $logger
      * @param Client $redisClient
@@ -113,23 +124,70 @@ class ServerRoutes
             $data = yield $request->getBody()->read();
             if (strlen($data) > 100 * 1000) {
                 $logger->error('Message payload too large!');
-                return new Response(Status::PAYLOAD_TOO_LARGE, ['content-type' => 'text/plain'], 'Payload Too Large');
+                return new Response(
+                    Status::PAYLOAD_TOO_LARGE,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'Payload Too Large'])
+                );
             }
 
-            try {
-                $secretRequest = CreateRequest::fromString($data);
-            } catch (\InvalidArgumentException $e) {
-                $logger->error('Invalid TTL in creation request: ' . $e->getMessage());
-                return new Response(Status::UNPROCESSABLE_ENTITY, ['content-type' => 'application/json'], json_encode(['error' => $e->getMessage()]));
-            } catch (\Exception $e) {
-                $logger->error('Unable to decode creation request');
-                return new Response(Status::BAD_REQUEST, ['content-type' => 'text/plain'], 'Bad Request');
+            $parsed = json_decode($data, true);
+            if ($parsed === null || !isset($parsed['encrypted_secret'], $parsed['verifier'])) {
+                $logger->error('Unable to decode JSON creation request');
+                return new Response(
+                    Status::BAD_REQUEST,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'Bad Request'])
+                );
             }
 
-            $secretID = $service->create($secretRequest);
-            $logger->info(sprintf('Created secret %s', $secretID));
+            $encryptedSecret = $parsed['encrypted_secret'];
+            $verifier        = $parsed['verifier'];
+            $ttl             = $parsed['ttl'] ?? self::DEFAULT_TTL;
+            $maxViews        = array_key_exists('max_views', $parsed) ? $parsed['max_views'] : null;
 
-            return new Response(Status::CREATED, ['content-type' => 'text/plain'], $secretID);
+            if (!is_string($encryptedSecret) || $encryptedSecret === '') {
+                return new Response(
+                    Status::BAD_REQUEST,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'encrypted_secret must be a non-empty string'])
+                );
+            }
+
+            if (!is_string($verifier) || $verifier === '') {
+                return new Response(
+                    Status::BAD_REQUEST,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'verifier must be a non-empty string'])
+                );
+            }
+
+            if (!is_int($ttl) || !in_array($ttl, self::ALLOWED_TTLS, true)) {
+                $logger->error('Invalid TTL in JSON creation request: ' . json_encode($ttl));
+                return new Response(
+                    Status::BAD_REQUEST,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'ttl must be one of: ' . implode(', ', self::ALLOWED_TTLS)])
+                );
+            }
+
+            if ($maxViews !== null && (!is_int($maxViews) || !in_array($maxViews, self::ALLOWED_MAX_VIEWS, true))) {
+                $logger->error('Invalid max_views in JSON creation request: ' . json_encode($maxViews));
+                return new Response(
+                    Status::BAD_REQUEST,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'max_views must be one of: ' . implode(', ', self::ALLOWED_MAX_VIEWS) . ', or null'])
+                );
+            }
+
+            $result = $service->createJson($encryptedSecret, $verifier, $ttl, $maxViews);
+            $logger->info(sprintf('Created JSON secret %s (ttl=%d, max_views=%s)', $result['id'], $ttl, $maxViews ?? 'unlimited'));
+
+            return new Response(
+                Status::CREATED,
+                ['content-type' => 'application/json'],
+                json_encode($result)
+            );
         });
     }
 

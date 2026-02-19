@@ -31,6 +31,45 @@ class SecretService
     }
 
     /**
+     * Store a new JSON-API secret in Redis.
+     *
+     * Generates a random 12-character hex ID, stores the bcrypt-hashed verifier,
+     * the encrypted secret payload, the expiry timestamp, and (if bounded) the
+     * view counter — all keyed under the json_* namespace so they are compatible
+     * with retrieveJson().
+     *
+     * @param string   $encryptedSecret Client-side AES-GCM ciphertext (hex-encoded)
+     * @param string   $verifier        Plain-text verifier; bcrypt-hashed before storage
+     * @param int      $ttl             Lifetime in seconds
+     * @param int|null $maxViews        Maximum retrieval count, or null for unlimited
+     * @return array{id: string, expires_at: string, max_views: int|null}
+     */
+    public function createJson(string $encryptedSecret, string $verifier, int $ttl, ?int $maxViews): array
+    {
+        $secretID    = bin2hex(random_bytes(6));
+        $verifierKey = "json_verifier:{$secretID}";
+        $secretKey   = "json_secret:{$secretID}";
+        $viewsKey    = "json_views:{$secretID}";
+        $expiresKey  = "json_expires:{$secretID}";
+
+        $expiresAt = time() + $ttl;
+
+        $this->redis->setex($verifierKey, $ttl, password_hash($verifier, PASSWORD_DEFAULT));
+        $this->redis->setex($secretKey, $ttl + 30, $encryptedSecret);
+        $this->redis->setex($expiresKey, $ttl + 30, (string) $expiresAt);
+
+        if ($maxViews !== null) {
+            $this->redis->setex($viewsKey, $ttl, (string) $maxViews);
+        }
+
+        return [
+            'id'         => $secretID,
+            'expires_at' => (new \DateTimeImmutable("@{$expiresAt}"))->format(\DateTimeInterface::ATOM),
+            'max_views'  => $maxViews,
+        ];
+    }
+
+    /**
      * Retrieve a v1 secret after verifying the supplied password.
      *
      * @param string $secretID
