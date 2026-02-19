@@ -69,42 +69,79 @@ class ServerRoutes
     }
 
     /**
-     * Process a secret creation request and attempt to create the secret.
+     * Process a JSON secret creation request and store the secret.
+     *
+     * Accepts: {"encrypted_secret": "...", "ttl": 86400, "max_views": 3}
+     * Returns: {"id": "...", "expires_at": <unix timestamp>, "max_views": 3}
      *
      * @param Logger $logger
      * @param Client $redisClient
-     * @return Callable
+     * @return CallableRequestHandler
      */
-    public static function createSecret(Logger $logger, Client $redisClient): CallableRequestHandler
+    public static function createSecretJson(Logger $logger, Client $redisClient): CallableRequestHandler
     {
-        return new CallableRequestHandler(function(Request $request) use ($logger, $redisClient) {
+        return new CallableRequestHandler(function (Request $request) use ($logger, $redisClient) {
             $data = yield $request->getBody()->read();
             if (strlen($data) > 100 * 1000) {
                 $logger->error('Message payload too large!');
-                return new Response(Status::PAYLOAD_TOO_LARGE, ['content-type' => 'text/plain'], 'Payload Too Large');
+                return new Response(
+                    Status::PAYLOAD_TOO_LARGE,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'Payload Too Large'])
+                );
             }
 
-            try {
-                $secretRequest = CreateRequest::fromString($data);
-            } catch (\InvalidArgumentException $e) {
-                $logger->error('Invalid TTL in creation request: ' . $e->getMessage());
-                return new Response(Status::UNPROCESSABLE_ENTITY, ['content-type' => 'application/json'], json_encode(['error' => $e->getMessage()]));
-            } catch (\Exception $e) {
-                $logger->error('Unable to decode creation request');
-                return new Response(Status::BAD_REQUEST, ['content-type' => 'text/plain'], 'Bad Request');
+            $parsed = json_decode($data, true);
+            if ($parsed === null || !isset($parsed['encrypted_secret']) || !is_string($parsed['encrypted_secret']) || $parsed['encrypted_secret'] === '') {
+                $logger->error('Invalid JSON creation request: missing or empty encrypted_secret');
+                return new Response(
+                    Status::BAD_REQUEST,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'Bad Request'])
+                );
             }
 
-            $secretID = bin2hex(random_bytes(6));
-            $secretKey = "secret:{$secretID}";
-            $verifierKey = "verifier:{$secretID}";
+            $ttl = isset($parsed['ttl']) ? (int) $parsed['ttl'] : CreateRequest::DEFAULT_TTL;
+            if ($ttl < 1 || $ttl > CreateRequest::MAX_TTL) {
+                $logger->error(sprintf('Invalid TTL in JSON creation request: %d', $ttl));
+                return new Response(
+                    Status::UNPROCESSABLE_ENTITY,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => sprintf('TTL must be between 1 and %d seconds.', CreateRequest::MAX_TTL)])
+                );
+            }
 
-            $ttl = $secretRequest->ttl();
-            $redisClient->setex($verifierKey, $ttl, $secretRequest->verifier());
-            $redisClient->setex($secretKey, $ttl + 30, $secretRequest->secret());
+            $maxViews = isset($parsed['max_views']) ? (int) $parsed['max_views'] : 1;
+            if ($maxViews < 1) {
+                $logger->error(sprintf('Invalid max_views in JSON creation request: %d', $maxViews));
+                return new Response(
+                    Status::UNPROCESSABLE_ENTITY,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'max_views must be at least 1.'])
+                );
+            }
 
-            $logger->info(sprintf('Created secret %s', $secretID));
+            $secretID   = bin2hex(random_bytes(6));
+            $secretKey  = "json_secret:{$secretID}";
+            $viewsKey   = "json_views:{$secretID}";
+            $expiresKey = "json_expires:{$secretID}";
+            $expiresAt  = time() + $ttl;
 
-            return new Response(Status::CREATED, ['content-type' => 'text/plain'], $secretID);
+            $redisClient->setex($secretKey, $ttl, $parsed['encrypted_secret']);
+            $redisClient->setex($viewsKey, $ttl, (string) $maxViews);
+            $redisClient->setex($expiresKey, $ttl, (string) $expiresAt);
+
+            $logger->info(sprintf('Created JSON secret %s (ttl=%d, max_views=%d)', $secretID, $ttl, $maxViews));
+
+            return new Response(
+                Status::CREATED,
+                ['content-type' => 'application/json'],
+                json_encode([
+                    'id'        => $secretID,
+                    'expires_at' => $expiresAt,
+                    'max_views' => $maxViews,
+                ])
+            );
         });
     }
 

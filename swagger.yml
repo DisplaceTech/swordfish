@@ -108,27 +108,69 @@ paths:
       tags:
         - "api"
       consumes:
-        - "text/plain"
+        - "application/json"
       produces:
-        - "text/plain"
+        - "application/json"
       parameters:
         - in: "body"
           name: "body"
-          description: |
-            Serialized secret to store in the server. Format: hex(salt)$hex(verifier)$hex(secret)[$ttl]
-            The optional TTL field specifies the secret lifetime in seconds (1–604800). Defaults to 86400.
+          description: "JSON payload containing the encrypted secret and optional metadata."
           required: true
           schema:
-            type: "string"
+            type: "object"
+            required:
+              - "encrypted_secret"
+            properties:
+              encrypted_secret:
+                type: "string"
+                description: "The client-side encrypted secret payload."
+              ttl:
+                type: "integer"
+                description: "Secret lifetime in seconds (1–604800). Defaults to 86400."
+                default: 86400
+              max_views:
+                type: "integer"
+                description: "Maximum number of times the secret may be retrieved. Defaults to 1."
+                default: 1
       responses:
         "201":
           description: "Created"
+          schema:
+            type: "object"
+            properties:
+              id:
+                type: "string"
+                description: "Unique identifier for the stored secret."
+              expires_at:
+                type: "integer"
+                description: "Unix timestamp when the secret expires."
+              max_views:
+                type: "integer"
+                description: "Maximum number of retrievals allowed."
         "400":
           description: "Bad Request"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+                example: "Bad Request"
         "413":
           description: "Payload Too Large"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+                example: "Payload Too Large"
         "422":
-          description: "Unprocessable Entity — TTL out of range"
+          description: "Unprocessable Entity — TTL or max_views out of range"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+                example: "TTL must be between 1 and 604800 seconds."
   /api/retrieve:
     post:
       summary: "Retrieve a secret from the datastore."
