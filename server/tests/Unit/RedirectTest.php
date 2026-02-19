@@ -20,23 +20,23 @@ class RedirectTest extends TestCase
         return new Request($client, 'POST', Http::new('http://localhost' . $path));
     }
 
-    public function testRedirectCreateReturns307ToApiCreate(): void
+    public function testRedirectCreateReturns308ToApiCreate(): void
     {
         $logger   = new Logger('test');
         $handler  = ServerRoutes::redirectCreate($logger);
         $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest('/create')));
 
-        $this->assertSame(Status::TEMPORARY_REDIRECT, $response->getStatus());
+        $this->assertSame(Status::PERMANENT_REDIRECT, $response->getStatus());
         $this->assertSame('/api/create', $response->getHeader('location'));
     }
 
-    public function testRedirectRetrieveReturns307ToApiRetrieve(): void
+    public function testRedirectRetrieveReturns308ToApiRetrieve(): void
     {
         $logger   = new Logger('test');
         $handler  = ServerRoutes::redirectRetrieve($logger);
         $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest('/retrieve')));
 
-        $this->assertSame(Status::TEMPORARY_REDIRECT, $response->getStatus());
+        $this->assertSame(Status::PERMANENT_REDIRECT, $response->getStatus());
         $this->assertSame('/api/retrieve', $response->getHeader('location'));
     }
 }

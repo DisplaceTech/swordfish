@@ -72,7 +72,7 @@ class ServerRoutes
     }
 
     /**
-     * Redirect POST /create to POST /api/create with a 307 Temporary Redirect.
+     * Redirect POST /create to POST /api/create with a 308 Permanent Redirect.
      *
      * @param Logger $logger
      * @return CallableRequestHandler
@@ -81,12 +81,12 @@ class ServerRoutes
     {
         return new CallableRequestHandler(function() use ($logger): Response {
             $logger->info('Redirecting POST /create to POST /api/create');
-            return new Response(Status::TEMPORARY_REDIRECT, ['location' => '/api/create'], '');
+            return new Response(Status::PERMANENT_REDIRECT, ['location' => '/api/create'], '');
         });
     }
 
     /**
-     * Redirect POST /retrieve to POST /api/retrieve with a 307 Temporary Redirect.
+     * Redirect POST /retrieve to POST /api/retrieve with a 308 Permanent Redirect.
      *
      * @param Logger $logger
      * @return CallableRequestHandler
@@ -95,7 +95,7 @@ class ServerRoutes
     {
         return new CallableRequestHandler(function() use ($logger): Response {
             $logger->info('Redirecting POST /retrieve to POST /api/retrieve');
-            return new Response(Status::TEMPORARY_REDIRECT, ['location' => '/api/retrieve'], '');
+            return new Response(Status::PERMANENT_REDIRECT, ['location' => '/api/retrieve'], '');
         });
     }
 
