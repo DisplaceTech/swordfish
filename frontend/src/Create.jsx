@@ -50,7 +50,7 @@ export default function Create() {
     try {
       const encrypted_secret = await encrypt(secret, password)
       const data = await createSecret({ encrypted_secret, ttl, max_views: maxViews })
-      const link = `${window.location.origin}/secret/${data.id}#${encodeURIComponent(password)}`
+      const link = `${window.location.origin}/secret/${data.id}`
       setResult({ id: data.id, link })
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.')
@@ -84,8 +84,8 @@ export default function Create() {
       <main className="mx-auto max-w-3xl px-4 py-12">
         <h1 className="mb-2 text-3xl font-bold text-gray-100 sm:text-4xl">Secret Created</h1>
         <p className="mb-8 text-lg text-gray-400">
-          Your secret has been encrypted and stored. Share the link below — the passphrase
-          is embedded in the URL fragment and never sent to the server.
+          Your secret has been encrypted and stored. Share the link below along with the
+          passphrase — the recipient will need both to decrypt the secret.
         </p>
 
         <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
@@ -170,7 +170,7 @@ export default function Create() {
               className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
             />
             <p className="mt-1 text-xs text-gray-500">
-              The passphrase is embedded in the shareable link and never sent to the server.
+              Share the passphrase separately with the recipient. It is never sent to the server.
             </p>
           </div>
 

@@ -41,6 +41,18 @@ export default function App() {
         <Retrieve path="/secret/:id" />
         <About path="/about" />
       </Router>
+
+      <footer className="border-t border-gray-800 py-6 text-center text-sm text-gray-500">
+        &copy; {new Date().getFullYear()}{' '}
+        <a
+          href="https://eamann.com"
+          className="text-gray-400 hover:text-indigo-400 transition-colors"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Eric Mann
+        </a>
+      </footer>
     </div>
   )
 }

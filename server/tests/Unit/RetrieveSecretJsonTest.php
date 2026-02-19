@@ -45,9 +45,9 @@ class RetrieveSecretJsonTest extends TestCase
         return $request;
     }
 
-    private function validBody(string $secretID, string $verifier): string
+    private function validBody(string $secretID, string $hexVerifier): string
     {
-        return json_encode(['id' => $secretID, 'verifier' => $verifier]);
+        return json_encode(['id' => $secretID, 'verifier' => $hexVerifier]);
     }
 
     // -------------------------------------------------------------------------
@@ -56,9 +56,10 @@ class RetrieveSecretJsonTest extends TestCase
 
     public function testReturns200WithSecretDataForUnlimitedSecret(): void
     {
-        $secretID = 'abc123def456';
-        $verifier = 'my-verifier';
-        $hash     = password_hash($verifier, PASSWORD_DEFAULT);
+        $secretID    = 'abc123def456';
+        $rawVerifier = str_repeat("\xab", 32);
+        $hexVerifier = bin2hex($rawVerifier);
+        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
 
         $redis = $this->makeRedisMock();
         $redis->method('get')
@@ -72,7 +73,7 @@ class RetrieveSecretJsonTest extends TestCase
 
         $logger   = new Logger('test');
         $handler  = ServerRoutes::retrieveSecretJson($logger, $redis);
-        $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest($this->validBody($secretID, $verifier))));
+        $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest($this->validBody($secretID, $hexVerifier))));
 
         $this->assertSame(Status::OK, $response->getStatus());
         $this->assertSame('application/json', $response->getHeader('content-type'));
@@ -91,9 +92,10 @@ class RetrieveSecretJsonTest extends TestCase
 
     public function testReturns200WithViewsRemainingForLimitedSecret(): void
     {
-        $secretID = 'abc123def456';
-        $verifier = 'my-verifier';
-        $hash     = password_hash($verifier, PASSWORD_DEFAULT);
+        $secretID    = 'abc123def456';
+        $rawVerifier = str_repeat("\xab", 32);
+        $hexVerifier = bin2hex($rawVerifier);
+        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
 
         $redis = $this->makeRedisMock();
         $redis->method('get')
@@ -107,7 +109,7 @@ class RetrieveSecretJsonTest extends TestCase
 
         $logger   = new Logger('test');
         $handler  = ServerRoutes::retrieveSecretJson($logger, $redis);
-        $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest($this->validBody($secretID, $verifier))));
+        $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest($this->validBody($secretID, $hexVerifier))));
 
         $this->assertSame(Status::OK, $response->getStatus());
 
@@ -123,9 +125,10 @@ class RetrieveSecretJsonTest extends TestCase
 
     public function testReturns200WhenLastViewIsConsumed(): void
     {
-        $secretID = 'abc123def456';
-        $verifier = 'my-verifier';
-        $hash     = password_hash($verifier, PASSWORD_DEFAULT);
+        $secretID    = 'abc123def456';
+        $rawVerifier = str_repeat("\xab", 32);
+        $hexVerifier = bin2hex($rawVerifier);
+        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
 
         $redis = $this->makeRedisMock();
         $redis->method('get')
@@ -140,7 +143,7 @@ class RetrieveSecretJsonTest extends TestCase
 
         $logger   = new Logger('test');
         $handler  = ServerRoutes::retrieveSecretJson($logger, $redis);
-        $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest($this->validBody($secretID, $verifier))));
+        $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest($this->validBody($secretID, $hexVerifier))));
 
         $this->assertSame(Status::OK, $response->getStatus());
 
@@ -218,16 +221,17 @@ class RetrieveSecretJsonTest extends TestCase
 
     public function testReturns401OnInvalidVerifier(): void
     {
-        $secretID = 'abc123def456';
-        $verifier = 'wrong-verifier';
-        $hash     = password_hash('correct-verifier', PASSWORD_DEFAULT);
+        $secretID       = 'abc123def456';
+        $correctBinary  = str_repeat("\xab", 32);
+        $wrongHex       = bin2hex(str_repeat("\xcd", 32));
+        $hash           = password_hash($correctBinary, PASSWORD_DEFAULT);
 
         $redis = $this->makeRedisMock();
         $redis->method('get')->willReturn($hash);
 
         $logger   = new Logger('test');
         $handler  = ServerRoutes::retrieveSecretJson($logger, $redis);
-        $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest($this->validBody($secretID, $verifier))));
+        $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest($this->validBody($secretID, $wrongHex))));
 
         $this->assertSame(Status::UNAUTHORIZED, $response->getStatus());
         $this->assertSame('application/json', $response->getHeader('content-type'));
@@ -244,15 +248,15 @@ class RetrieveSecretJsonTest extends TestCase
 
     public function testReturns404WhenVerifierKeyMissing(): void
     {
-        $secretID = 'abc123def456';
-        $verifier = 'my-verifier';
+        $secretID    = 'abc123def456';
+        $hexVerifier = bin2hex(str_repeat("\xab", 32));
 
         $redis = $this->makeRedisMock();
         $redis->method('get')->willReturn(null);
 
         $logger   = new Logger('test');
         $handler  = ServerRoutes::retrieveSecretJson($logger, $redis);
-        $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest($this->validBody($secretID, $verifier))));
+        $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest($this->validBody($secretID, $hexVerifier))));
 
         $this->assertSame(Status::NOT_FOUND, $response->getStatus());
         $this->assertSame('application/json', $response->getHeader('content-type'));
@@ -265,9 +269,10 @@ class RetrieveSecretJsonTest extends TestCase
 
     public function testReturns404WhenViewsExhausted(): void
     {
-        $secretID = 'abc123def456';
-        $verifier = 'my-verifier';
-        $hash     = password_hash($verifier, PASSWORD_DEFAULT);
+        $secretID    = 'abc123def456';
+        $rawVerifier = str_repeat("\xab", 32);
+        $hexVerifier = bin2hex($rawVerifier);
+        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
 
         $redis = $this->makeRedisMock();
         $redis->method('get')
@@ -282,7 +287,7 @@ class RetrieveSecretJsonTest extends TestCase
 
         $logger   = new Logger('test');
         $handler  = ServerRoutes::retrieveSecretJson($logger, $redis);
-        $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest($this->validBody($secretID, $verifier))));
+        $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest($this->validBody($secretID, $hexVerifier))));
 
         $this->assertSame(Status::NOT_FOUND, $response->getStatus());
 
@@ -297,9 +302,10 @@ class RetrieveSecretJsonTest extends TestCase
 
     public function testRateLimitHeadersPresentOnSuccessResponse(): void
     {
-        $secretID = 'abc123def456';
-        $verifier = 'my-verifier';
-        $hash     = password_hash($verifier, PASSWORD_DEFAULT);
+        $secretID    = 'abc123def456';
+        $rawVerifier = str_repeat("\xab", 32);
+        $hexVerifier = bin2hex($rawVerifier);
+        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
 
         $redis = $this->makeRedisMock();
         $redis->method('get')
@@ -313,7 +319,7 @@ class RetrieveSecretJsonTest extends TestCase
 
         $logger   = new Logger('test');
         $handler  = ServerRoutes::retrieveSecretJson($logger, $redis);
-        $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest($this->validBody($secretID, $verifier))));
+        $response = \Amp\Promise\wait($handler->handleRequest($this->makeRequest($this->validBody($secretID, $hexVerifier))));
 
         $this->assertSame(Status::OK, $response->getStatus());
         $this->assertNotNull($response->getHeader('x-ratelimit-limit'));

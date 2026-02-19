@@ -166,25 +166,27 @@ class SecretServiceTest extends TestCase
         $service = new SecretService($redis);
 
         $this->expectException(SecretNotFoundException::class);
-        $service->retrieveJson('abc123def456', 'any-verifier');
+        $service->retrieveJson('abc123def456', bin2hex(str_repeat("\xab", 32)));
     }
 
     public function testRetrieveJsonThrowsInvalidVerifierOnBadPassword(): void
     {
         $redis = $this->makeRedisMock();
-        $redis->method('get')->willReturn(password_hash('correct-verifier', PASSWORD_DEFAULT));
+        $correctBinary = str_repeat("\xab", 32);
+        $redis->method('get')->willReturn(password_hash($correctBinary, PASSWORD_DEFAULT));
 
         $service = new SecretService($redis);
 
         $this->expectException(InvalidVerifierException::class);
-        $service->retrieveJson('abc123def456', 'wrong-verifier');
+        $service->retrieveJson('abc123def456', bin2hex(str_repeat("\xcd", 32)));
     }
 
     public function testRetrieveJsonThrowsSecretNotFoundWhenSecretKeyMissing(): void
     {
-        $redis    = $this->makeRedisMock();
-        $verifier = 'my-verifier';
-        $hash     = password_hash($verifier, PASSWORD_DEFAULT);
+        $redis       = $this->makeRedisMock();
+        $rawVerifier = str_repeat("\xab", 32);
+        $hexVerifier = bin2hex($rawVerifier);
+        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
 
         $redis->method('get')
             ->willReturnCallback(function (string $key) use ($hash) {
@@ -200,14 +202,15 @@ class SecretServiceTest extends TestCase
         $service = new SecretService($redis);
 
         $this->expectException(SecretNotFoundException::class);
-        $service->retrieveJson('abc123def456', $verifier);
+        $service->retrieveJson('abc123def456', $hexVerifier);
     }
 
     public function testRetrieveJsonReturnsDataAndDecrementsViews(): void
     {
-        $redis    = $this->makeRedisMock();
-        $verifier = 'my-verifier';
-        $hash     = password_hash($verifier, PASSWORD_DEFAULT);
+        $redis       = $this->makeRedisMock();
+        $rawVerifier = str_repeat("\xab", 32);
+        $hexVerifier = bin2hex($rawVerifier);
+        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
 
         $redis->method('get')
             ->willReturnCallback(function (string $key) use ($hash) {
@@ -223,7 +226,7 @@ class SecretServiceTest extends TestCase
             ->willReturn(['encrypted-payload', '9999999999', '2']);
 
         $service = new SecretService($redis);
-        $result  = $service->retrieveJson('abc123def456', $verifier);
+        $result  = $service->retrieveJson('abc123def456', $hexVerifier);
 
         $this->assertSame('encrypted-payload', $result['encrypted_secret']);
         $this->assertSame(2, $result['views_remaining']);
@@ -232,9 +235,10 @@ class SecretServiceTest extends TestCase
 
     public function testRetrieveJsonDeletesAllKeysWhenViewsExhausted(): void
     {
-        $redis    = $this->makeRedisMock();
-        $verifier = 'my-verifier';
-        $hash     = password_hash($verifier, PASSWORD_DEFAULT);
+        $redis       = $this->makeRedisMock();
+        $rawVerifier = str_repeat("\xab", 32);
+        $hexVerifier = bin2hex($rawVerifier);
+        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
 
         $redis->method('get')
             ->willReturnCallback(function (string $key) use ($hash) {
@@ -245,21 +249,20 @@ class SecretServiceTest extends TestCase
             });
 
         // Lua script returns views_remaining=0 and handles deletion internally
-        $redis->expects($this->once())
-            ->method('eval')
-            ->willReturn(['encrypted-payload', '9999999999', '0']);
+        $redis->method('eval')->willReturn(['encrypted-payload', '9999999999', '0']);
 
         $service = new SecretService($redis);
-        $result  = $service->retrieveJson('abc123def456', $verifier);
+        $result  = $service->retrieveJson('abc123def456', $hexVerifier);
 
         $this->assertSame(0, $result['views_remaining']);
     }
 
     public function testRetrieveJsonReturnsNullViewsRemainingForUnlimitedSecret(): void
     {
-        $redis    = $this->makeRedisMock();
-        $verifier = 'my-verifier';
-        $hash     = password_hash($verifier, PASSWORD_DEFAULT);
+        $redis       = $this->makeRedisMock();
+        $rawVerifier = str_repeat("\xab", 32);
+        $hexVerifier = bin2hex($rawVerifier);
+        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
 
         $redis->method('get')
             ->willReturnCallback(function (string $key) use ($hash) {
@@ -275,7 +278,7 @@ class SecretServiceTest extends TestCase
             ->willReturn(['encrypted-payload', '9999999999', null]);
 
         $service = new SecretService($redis);
-        $result  = $service->retrieveJson('abc123def456', $verifier);
+        $result  = $service->retrieveJson('abc123def456', $hexVerifier);
 
         $this->assertSame('encrypted-payload', $result['encrypted_secret']);
         $this->assertNull($result['views_remaining']);
@@ -284,9 +287,10 @@ class SecretServiceTest extends TestCase
 
     public function testRetrieveJsonThrowsSecretNotFoundWhenViewsAlreadyExhausted(): void
     {
-        $redis    = $this->makeRedisMock();
-        $verifier = 'my-verifier';
-        $hash     = password_hash($verifier, PASSWORD_DEFAULT);
+        $redis       = $this->makeRedisMock();
+        $rawVerifier = str_repeat("\xab", 32);
+        $hexVerifier = bin2hex($rawVerifier);
+        $hash        = password_hash($rawVerifier, PASSWORD_DEFAULT);
 
         $redis->method('get')
             ->willReturnCallback(function (string $key) use ($hash) {
@@ -304,7 +308,7 @@ class SecretServiceTest extends TestCase
         $service = new SecretService($redis);
 
         $this->expectException(SecretNotFoundException::class);
-        $service->retrieveJson('abc123def456', $verifier);
+        $service->retrieveJson('abc123def456', $hexVerifier);
     }
 
     // -------------------------------------------------------------------------
