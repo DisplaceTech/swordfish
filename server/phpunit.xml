@@ -10,6 +10,9 @@
         <testsuite name="Integration">
             <directory>tests/Integration</directory>
         </testsuite>
+        <testsuite name="Smoke">
+            <directory>tests/Smoke</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>
