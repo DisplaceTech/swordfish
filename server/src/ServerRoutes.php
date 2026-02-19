@@ -80,9 +80,11 @@ class ServerRoutes
             $secretID = bin2hex(random_bytes(6));
             $secretKey = "secret:{$secretID}";
             $verifierKey = "verifier:{$secretID}";
+            $ttl = 24 * 60 * 60;
 
-            $redisClient->setex($verifierKey, 24 * 60 * 60, $secretRequest->verifier());
-            $redisClient->setex($secretKey, (24 * 60 * 60) + 30, $secretRequest->secret());
+            $redisClient->setex($verifierKey, $ttl, $secretRequest->verifier());
+            $redisClient->setex($secretKey, $ttl + 30, $secretRequest->secret());
+            ViewCounter::initialize($redisClient, $secretID, $secretRequest->views(), $ttl);
 
             $logger->info(sprintf('Created secret %s', $secretID));
 
@@ -157,6 +159,11 @@ class ServerRoutes
             if ($secret === null) {
                 $logger->error(sprintf('Secret %s was requested but was not found.', $secretID));
                 return new Response(Status::NOT_FOUND, ['content-type' => 'text/plain'], 'Not found or expired');
+            }
+
+            $remaining = ViewCounter::decrement($redisClient, $secretID);
+            if (ViewCounter::deleteIfExhausted($redisClient, $secretID, $remaining)) {
+                $logger->info(sprintf('Secret %s view limit reached; keys deleted.', $secretID));
             }
 
             return new Response(Status::OK, ['content-type' => 'text/plain'], $secret);
