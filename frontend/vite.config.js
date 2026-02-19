@@ -8,7 +8,9 @@ export default defineConfig({
     emptyOutDir: true,
   },
   test: {
+    globals: true,
     environment: 'node',
+    setupFiles: ['src/__tests__/setup.js'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
