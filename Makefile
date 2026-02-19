@@ -1,4 +1,4 @@
-.PHONY: server-build server-up server-down server-install cli-install
+.PHONY: server-build server-up server-down server-install cli-install frontend-install frontend-build frontend-dev
 
 # Default target
 .DEFAULT_GOAL := server-up
@@ -22,4 +22,16 @@ server-install:
 
 # Install Composer dependencies locally for CLI
 cli-install:
-	docker run --rm -v $(PWD)/cli:/app composer:latest composer install --ignore-platform-reqs 
+	docker run --rm -v $(PWD)/cli:/app composer:latest composer install --ignore-platform-reqs
+
+# Install Node dependencies for the frontend
+frontend-install:
+	cd frontend && npm install
+
+# Build the frontend SPA (outputs to server/static/)
+frontend-build: frontend-install
+	cd frontend && npm run build
+
+# Start the frontend dev server with hot reload
+frontend-dev: frontend-install
+	cd frontend && npm run dev
