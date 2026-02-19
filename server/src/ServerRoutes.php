@@ -91,6 +91,69 @@ class ServerRoutes
     }
 
     /**
+     * Handle JSON API requests to create a new secret.
+     *
+     * @param Logger $logger
+     * @param Client $redisClient
+     * @return CallableRequestHandler
+     */
+    public static function apiCreateSecret(Logger $logger, Client $redisClient): CallableRequestHandler
+    {
+        return new CallableRequestHandler(function(Request $request) use ($logger, $redisClient) {
+            $data = yield $request->getBody()->read();
+            if (strlen($data) > 100 * 1000) {
+                $logger->error('Message payload too large!');
+                return new Response(
+                    Status::PAYLOAD_TOO_LARGE,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'Payload Too Large'])
+                );
+            }
+
+            try {
+                $createRequest = JsonCreateRequest::fromString($data);
+            } catch (\InvalidArgumentException $e) {
+                $logger->error('Invalid JSON create request: ' . $e->getMessage());
+                return new Response(
+                    Status::BAD_REQUEST,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => $e->getMessage()])
+                );
+            }
+
+            $secretID = bin2hex(random_bytes(6));
+            $secretKey = "secret:{$secretID}";
+            $viewsKey = "views:{$secretID}";
+            $ttl = $createRequest->ttl();
+
+            try {
+                $redisClient->setex($secretKey, $ttl, $createRequest->encryptedSecret());
+                $redisClient->setex($viewsKey, $ttl, $createRequest->maxViews());
+            } catch (\Exception $e) {
+                $logger->error('Redis error during secret creation: ' . $e->getMessage());
+                return new Response(
+                    Status::SERVICE_UNAVAILABLE,
+                    ['content-type' => 'application/json'],
+                    json_encode(['error' => 'Service unavailable'])
+                );
+            }
+
+            $expiresAt = time() + $ttl;
+            $logger->info(sprintf('Created JSON API secret %s (ttl=%d, max_views=%d)', $secretID, $ttl, $createRequest->maxViews()));
+
+            return new Response(
+                Status::CREATED,
+                ['content-type' => 'application/json'],
+                json_encode([
+                    'id'         => $secretID,
+                    'expires_at' => $expiresAt,
+                    'max_views'  => $createRequest->maxViews(),
+                ])
+            );
+        });
+    }
+
+    /**
      * Check Redis connectivity and return service health status.
      *
      * @param Logger $logger

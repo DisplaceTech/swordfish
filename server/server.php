@@ -52,6 +52,7 @@ Amp\Loop::run(function () {
 
     $router->addRoute('POST', '/create', ServerRoutes::createSecret($logger, $redisClient));
     $router->addRoute('POST', '/retrieve', ServerRoutes::retrieveSecret($logger, $redisClient));
+    $router->addRoute('POST', '/api/create', ServerRoutes::apiCreateSecret($logger, $redisClient));
 
     $router->setFallback($documentRoot);
 

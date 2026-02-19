@@ -89,23 +89,72 @@ paths:
       tags:
         - "api"
       consumes:
-        - "text/plain"
+        - "application/json"
       produces:
-        - "text/plain"
+        - "application/json"
       parameters:
         - in: "body"
           name: "body"
-          description: "Serialized secret to store in the server"
+          description: "JSON payload containing the encrypted secret and storage parameters"
           required: true
           schema:
-            type: "string"
+            type: "object"
+            required:
+              - "encrypted_secret"
+              - "ttl"
+              - "max_views"
+            properties:
+              encrypted_secret:
+                type: "string"
+                description: "Client-side encrypted secret payload"
+              ttl:
+                type: "integer"
+                description: "Time-to-live in seconds (1–604800)"
+                minimum: 1
+                maximum: 604800
+              max_views:
+                type: "integer"
+                description: "Maximum number of times the secret may be viewed"
+                minimum: 1
       responses:
         "201":
           description: "Created"
+          schema:
+            type: "object"
+            properties:
+              id:
+                type: "string"
+                description: "Unique identifier for the stored secret"
+                example: "a1b2c3d4e5f6"
+              expires_at:
+                type: "integer"
+                description: "Unix timestamp when the secret expires"
+                example: 1700000000
+              max_views:
+                type: "integer"
+                description: "Maximum number of allowed views"
+                example: 5
         "400":
-          description: "Bad Request"
+          description: "Bad Request — invalid or missing fields"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
         "413":
           description: "Payload Too Large"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+        "503":
+          description: "Service Unavailable — Redis unreachable"
+          schema:
+            type: "object"
+            properties:
+              error:
+                type: "string"
   /api/retrieve:
     post:
       summary: "Retrieve a secret from the datastore."
