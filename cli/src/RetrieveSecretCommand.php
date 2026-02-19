@@ -30,12 +30,13 @@ class RetrieveSecretCommand extends Command
         $payload = $secretId . '$' . $verifier;
 
         $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, "{$serverUrl}/retrieve");
+        curl_setopt($ch, CURLOPT_URL, "{$serverUrl}/api/retrieve");
         curl_setopt($ch, CURLOPT_USERAGENT, 'Swordfish CLI');
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: text/plain']);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_POST, 1);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
 
         $response = curl_exec($ch);
 
