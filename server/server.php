@@ -58,6 +58,8 @@ Amp\Loop::run(function () {
     $router->addRoute('GET', '/', ServerRoutes::mainContent($logger));
     $router->addRoute('GET', '/secret', ServerRoutes::secretRetrieval($logger));
     $router->addRoute('GET', '/secret/{secretId}', ServerRoutes::secretRetrieval($logger));
+    $router->addRoute('GET', '/about', ServerRoutes::mainContent($logger));
+    $router->addRoute('GET', '/metrics', ServerRoutes::mainContent($logger));
     $router->addRoute('GET', '/health', ServerRoutes::healthCheck($logger, $redisClient));
 
     /***********************************************************/
