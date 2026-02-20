@@ -293,6 +293,64 @@ class ServerRoutes
     }
 
     /**
+     * Serve hourly time-series metrics as JSON for the dashboard UI.
+     *
+     * Returns the last 168 hours (7 days) of per-hour counters for
+     * secrets created, secrets retrieved, bytes stored, and bytes retrieved.
+     * Hours with all-zero values are omitted from the response.
+     *
+     * @param Logger $logger
+     * @param Client $redisClient
+     * @return CallableRequestHandler
+     */
+    public static function dashboardMetrics(Logger $logger, Client $redisClient): CallableRequestHandler
+    {
+        return new CallableRequestHandler(function () use ($logger, $redisClient): Response {
+            $totalHours = 168; // 7 days
+            $now = time();
+
+            $hourLabels = [];
+            for ($i = $totalHours - 1; $i >= 0; $i--) {
+                $hourLabels[] = date('Y-m-d:H', $now - $i * 3600);
+            }
+
+            $prefixes = ['created', 'retrieved', 'bytes_stored', 'bytes_retrieved'];
+            $buckets  = [];
+
+            foreach ($prefixes as $prefix) {
+                $keys = array_map(fn(string $h) => "metrics:{$prefix}:{$h}", $hourLabels);
+                $values = $redisClient->mget($keys);
+                foreach ($values as $idx => $v) {
+                    $buckets[$idx][$prefix] = (int) ($v ?? 0);
+                }
+            }
+
+            $hours = [];
+            foreach ($hourLabels as $idx => $label) {
+                $row = $buckets[$idx];
+                if ($row['created'] === 0 && $row['retrieved'] === 0
+                    && $row['bytes_stored'] === 0 && $row['bytes_retrieved'] === 0) {
+                    continue;
+                }
+                $hours[] = [
+                    'hour'           => $label,
+                    'created'        => $row['created'],
+                    'retrieved'      => $row['retrieved'],
+                    'bytes_stored'   => $row['bytes_stored'],
+                    'bytes_retrieved' => $row['bytes_retrieved'],
+                ];
+            }
+
+            $logger->info('Dashboard metrics endpoint served');
+            return new Response(
+                Status::OK,
+                array_merge(['content-type' => 'application/json'], self::securityHeaders()),
+                json_encode(['hours' => $hours])
+            );
+        });
+    }
+
+    /**
      * Handle API requests to retrieve a secret.
      *
      * @param Logger $logger

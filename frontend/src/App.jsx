@@ -2,6 +2,7 @@ import Router, { Link, useRouter } from 'preact-router'
 import Create from './Create.jsx'
 import Retrieve from './Retrieve.jsx'
 import About from './About.jsx'
+import Metrics from './Metrics.jsx'
 
 function NavLink({ href, children }) {
   const [{ url }] = useRouter()
@@ -40,6 +41,7 @@ export default function App() {
         <Retrieve path="/secret" />
         <Retrieve path="/secret/:id" />
         <About path="/about" />
+        <Metrics path="/metrics" />
       </Router>
 
       <footer className="border-t border-gray-800 py-6 text-center text-sm text-gray-500">
