@@ -67,3 +67,15 @@ export async function retrieveSecret(id, verifier) {
 
   return response.json()
 }
+
+/**
+ * Fetch dashboard metrics (hourly time-series for the last 7 days).
+ *
+ * @returns {Promise<{hours: Array<{hour: string, created: number, retrieved: number, bytes_stored: number, bytes_retrieved: number}>}>}
+ * @throws {Error} On HTTP error or network failure
+ */
+export async function fetchMetrics() {
+  const response = await fetch('/api/metrics/dashboard')
+  if (!response.ok) throw new Error('Failed to load metrics')
+  return response.json()
+}
