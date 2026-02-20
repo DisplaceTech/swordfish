@@ -119,6 +119,20 @@ describe('Retrieve — submission flow', () => {
     expect(screen.getByText(/1 view remaining/)).toBeInTheDocument()
   })
 
+  it('shows unlimited views message when views_remaining is null', async () => {
+    getVerifier.mockResolvedValue('verifier-hex')
+    retrieveSecret.mockResolvedValue({ ...MOCK_RESPONSE, views_remaining: null })
+    decrypt.mockResolvedValue('msg')
+
+    render(<Retrieve />)
+    fireEvent.input(screen.getByLabelText('Secret ID'), { target: { value: 'abc123' } })
+    fireEvent.input(screen.getByLabelText('Passphrase'), { target: { value: 'mypass' } })
+    fireEvent.submit(screen.getByRole('button', { name: 'Retrieve Secret' }).closest('form'))
+
+    await screen.findByRole('heading', { level: 1, name: 'Your Secret' })
+    expect(screen.getByText(/Unlimited views/)).toBeInTheDocument()
+  })
+
   it('shows deletion notice when 0 views remain', async () => {
     getVerifier.mockResolvedValue('verifier-hex')
     retrieveSecret.mockResolvedValue({ ...MOCK_RESPONSE, views_remaining: 0 })
