@@ -71,9 +71,11 @@ export default function Retrieve({ id: urlId }) {
         <div className="flex flex-wrap gap-4 text-sm text-gray-400">
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-2 w-2 rounded-full bg-indigo-400" />
-            {viewsRemaining === 0
-              ? 'No views remaining — this secret has been deleted'
-              : `${viewsRemaining} view${viewsRemaining === 1 ? '' : 's'} remaining`}
+            {viewsRemaining === null
+              ? 'Unlimited views'
+              : viewsRemaining === 0
+                ? 'No views remaining — this secret has been deleted'
+                : `${viewsRemaining} view${viewsRemaining === 1 ? '' : 's'} remaining`}
           </span>
           {expiresAt !== null && (
             <span className="flex items-center gap-1.5">
