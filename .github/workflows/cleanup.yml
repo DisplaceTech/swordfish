@@ -1,0 +1,21 @@
+name: Delete Old Packages
+on:
+  workflow_dispatch:
+  schedule:
+    # Run every Monday at midnight UTC
+    - cron: '0 0 * * MON'
+
+jobs:
+  delete-old-versions:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write # Grant the workflow necessary permissions to delete packages
+      contents: read
+    steps:
+      - name: Delete old package versions
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: 'swordfish/server' # Replace with your package name
+          package-type: 'docker' # Replace with your package type (npm, maven, etc.)
+          min-versions-to-keep: 5
+          token: ${{ secrets.GITHUB_TOKEN }} # Uses the auto-generated token with 'write:packages' permission
