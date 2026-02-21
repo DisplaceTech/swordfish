@@ -15,7 +15,8 @@ jobs:
       - name: Delete old package versions
         uses: actions/delete-package-versions@v5
         with:
-          package-name: 'swordfish/server' # Replace with your package name
-          package-type: 'docker' # Replace with your package type (npm, maven, etc.)
+          owner: DisplaceTech
+          package-name: 'swordfish/server'
+          package-type: 'container'
           min-versions-to-keep: 5
-          token: ${{ secrets.GITHUB_TOKEN }} # Uses the auto-generated token with 'write:packages' permission
+          token: ${{ secrets.GITHUB_TOKEN }}
