@@ -40,7 +40,7 @@ jobs:
 
       - name: Pull latest image and push with version tag
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          IMAGE=$(echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
           VERSION="${{ steps.version.outputs.tag }}"
           docker pull "${IMAGE}:latest"
           docker tag "${IMAGE}:latest" "${IMAGE}:${VERSION}"
