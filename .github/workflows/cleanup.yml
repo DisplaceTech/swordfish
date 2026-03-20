@@ -9,14 +9,52 @@ jobs:
   delete-old-versions:
     runs-on: ubuntu-latest
     permissions:
-      packages: write # Grant the workflow necessary permissions to delete packages
+      packages: write
       contents: read
     steps:
-      - name: Delete old package versions
-        uses: actions/delete-package-versions@v5
-        with:
-          owner: DisplaceTech
-          package-name: 'swordfish/server'
-          package-type: 'container'
-          min-versions-to-keep: 5
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Delete old untagged package versions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PACKAGE="swordfish%2Fserver"
+          ORG="DisplaceTech"
+          MIN_KEEP=5
+
+          # Get all versions: id, tags, created_at (newest first from API)
+          VERSIONS=$(gh api \
+            --paginate \
+            -H "Accept: application/vnd.github+json" \
+            "/orgs/$ORG/packages/container/$PACKAGE/versions" \
+            --jq '.[] | "\(.id)\t\(.metadata.container.tags | join(","))"')
+
+          DELETABLE=()
+          while IFS=$'\t' read -r ID TAGS; do
+            [ -z "$ID" ] && continue
+
+            # Protect versions tagged with "latest" or a version tag (v*)
+            if echo ",$TAGS," | grep -qE ',latest,|,v[0-9]'; then
+              echo "Keeping version $ID (tags: ${TAGS:-<none>})"
+              continue
+            fi
+
+            DELETABLE+=("$ID")
+          done <<< "$VERSIONS"
+
+          TOTAL=${#DELETABLE[@]}
+          echo "Found $TOTAL deletable versions (SHA-only or untagged)"
+
+          if [ "$TOTAL" -le "$MIN_KEEP" ]; then
+            echo "At or below minimum ($MIN_KEEP), nothing to delete"
+            exit 0
+          fi
+
+          # API returns newest first, so keep the first MIN_KEEP and delete the rest
+          TO_DELETE=("${DELETABLE[@]:$MIN_KEEP}")
+          echo "Deleting ${#TO_DELETE[@]} old versions (keeping newest $MIN_KEEP)"
+
+          for ID in "${TO_DELETE[@]}"; do
+            echo "Deleting version $ID"
+            gh api --method DELETE \
+              -H "Accept: application/vnd.github+json" \
+              "/orgs/$ORG/packages/container/$PACKAGE/versions/$ID" || true
+          done
