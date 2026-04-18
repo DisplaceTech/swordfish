@@ -6,6 +6,7 @@ namespace Swordfish\Server\Tests;
 
 use PHPUnit\Framework\TestCase;
 use Predis\Client as RedisClient;
+use Swordfish\Server\Tests\Support\RedisClientStub;
 use Swordfish\Server\CreateRequest;
 use Swordfish\Server\InvalidVerifierException;
 use Swordfish\Server\SecretNotFoundException;
@@ -15,9 +16,9 @@ class SecretServiceTest extends TestCase
 {
     private function makeRedisMock(): RedisClient
     {
-        return $this->getMockBuilder(RedisClient::class)
+        return $this->getMockBuilder(RedisClientStub::class)
             ->disableOriginalConstructor()
-            ->addMethods(['setex', 'get', 'eval'])
+            ->onlyMethods(['setex', 'get', 'eval'])
             ->getMock();
     }
 

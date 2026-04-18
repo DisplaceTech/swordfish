@@ -12,6 +12,7 @@ use Monolog\Logger;
 use PHPUnit\Framework\TestCase;
 use Predis\Client as RedisClient;
 use Swordfish\Server\ServerRoutes;
+use Swordfish\Server\Tests\Support\RedisClientStub;
 
 /**
  * Tests for the v1 (backward-compatible) POST /retrieve handler.
@@ -22,9 +23,9 @@ class RetrieveSecretTest extends TestCase
 {
     private function makeRedisMock(): RedisClient
     {
-        return $this->getMockBuilder(RedisClient::class)
+        return $this->getMockBuilder(RedisClientStub::class)
             ->disableOriginalConstructor()
-            ->addMethods(['get'])
+            ->onlyMethods(['get'])
             ->getMock();
     }
 

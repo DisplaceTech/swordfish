@@ -7,14 +7,15 @@ namespace Swordfish\Server\Tests;
 use PHPUnit\Framework\TestCase;
 use Predis\Client as RedisClient;
 use Swordfish\Server\MetricsService;
+use Swordfish\Server\Tests\Support\RedisClientStub;
 
 class MetricsServiceTest extends TestCase
 {
     private function makeRedisMock(): RedisClient
     {
-        return $this->getMockBuilder(RedisClient::class)
+        return $this->getMockBuilder(RedisClientStub::class)
             ->disableOriginalConstructor()
-            ->addMethods(['incrby', 'expire'])
+            ->onlyMethods(['incrby', 'expire'])
             ->getMock();
     }
 

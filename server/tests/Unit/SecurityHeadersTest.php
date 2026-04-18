@@ -15,6 +15,7 @@ use Monolog\Logger;
 use PHPUnit\Framework\TestCase;
 use Predis\Client as RedisClient;
 use Swordfish\Server\ServerRoutes;
+use Swordfish\Server\Tests\Support\RedisClientStub;
 
 class SecurityHeadersTest extends TestCase
 {
@@ -49,10 +50,12 @@ class SecurityHeadersTest extends TestCase
 
     private function makeRedisMock(array $methods = []): RedisClient
     {
-        return $this->getMockBuilder(RedisClient::class)
-            ->disableOriginalConstructor()
-            ->addMethods($methods)
-            ->getMock();
+        $builder = $this->getMockBuilder(RedisClientStub::class)
+            ->disableOriginalConstructor();
+        if ($methods !== []) {
+            $builder->onlyMethods($methods);
+        }
+        return $builder->getMock();
     }
 
     public function testMainContentIncludesSecurityHeaders(): void

@@ -6,15 +6,16 @@ namespace Swordfish\Server\Tests;
 
 use PHPUnit\Framework\TestCase;
 use Predis\Client as RedisClient;
+use Swordfish\Server\Tests\Support\RedisClientStub;
 use Swordfish\Server\VerifierService;
 
 class VerifierServiceTest extends TestCase
 {
     private function makeRedisMock(): RedisClient
     {
-        return $this->getMockBuilder(RedisClient::class)
+        return $this->getMockBuilder(RedisClientStub::class)
             ->disableOriginalConstructor()
-            ->addMethods(['setex', 'get'])
+            ->onlyMethods(['setex', 'get'])
             ->getMock();
     }
 

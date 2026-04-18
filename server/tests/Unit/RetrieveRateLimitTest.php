@@ -13,14 +13,15 @@ use Monolog\Logger;
 use PHPUnit\Framework\TestCase;
 use Predis\Client as RedisClient;
 use Swordfish\Server\ServerRoutes;
+use Swordfish\Server\Tests\Support\RedisClientStub;
 
 class RetrieveRateLimitTest extends TestCase
 {
     private function makeRedisMock(int $incrReturn): RedisClient
     {
-        $redis = $this->getMockBuilder(RedisClient::class)
+        $redis = $this->getMockBuilder(RedisClientStub::class)
             ->disableOriginalConstructor()
-            ->addMethods(['incr', 'expire'])
+            ->onlyMethods(['incr', 'expire'])
             ->getMock();
         $redis->method('incr')->willReturn($incrReturn);
         return $redis;
@@ -70,9 +71,9 @@ class RetrieveRateLimitTest extends TestCase
     public function testDoesNotReturn429WhenUnderLimit(): void
     {
         $logger = new Logger('test');
-        $redis  = $this->getMockBuilder(RedisClient::class)
+        $redis  = $this->getMockBuilder(RedisClientStub::class)
             ->disableOriginalConstructor()
-            ->addMethods(['incr', 'expire', 'get'])
+            ->onlyMethods(['incr', 'expire', 'get'])
             ->getMock();
         $redis->method('incr')->willReturn(1);
         $redis->method('get')->willReturn(null); // secret not found → 400 bad request path

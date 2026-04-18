@@ -15,14 +15,15 @@ use Predis\Client as RedisClient;
 use Swordfish\Server\SecretNotFoundException;
 use Swordfish\Server\SecretService;
 use Swordfish\Server\ServerRoutes;
+use Swordfish\Server\Tests\Support\RedisClientStub;
 
 class SecretInfoTest extends TestCase
 {
     private function makeRedisMock(): RedisClient
     {
-        return $this->getMockBuilder(RedisClient::class)
+        return $this->getMockBuilder(RedisClientStub::class)
             ->disableOriginalConstructor()
-            ->addMethods(['get'])
+            ->onlyMethods(['get'])
             ->getMock();
     }
 
