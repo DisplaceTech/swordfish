@@ -13,6 +13,7 @@ use PHPUnit\Framework\TestCase;
 use Predis\Client as RedisClient;
 use Predis\Connection\ConnectionException;
 use Swordfish\Server\ServerRoutes;
+use Swordfish\Server\Tests\Support\RedisClientStub;
 
 class HealthCheckTest extends TestCase
 {
@@ -24,9 +25,9 @@ class HealthCheckTest extends TestCase
 
     private function makeRedisMock(): RedisClient
     {
-        return $this->getMockBuilder(RedisClient::class)
+        return $this->getMockBuilder(RedisClientStub::class)
             ->disableOriginalConstructor()
-            ->addMethods(['ping'])
+            ->onlyMethods(['ping'])
             ->getMock();
     }
 

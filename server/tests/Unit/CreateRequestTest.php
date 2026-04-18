@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Swordfish\Server\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Swordfish\Server\CreateRequest;
 
@@ -77,9 +78,7 @@ class CreateRequestTest extends TestCase
         $this->assertSame(0, $request->maxViews());
     }
 
-    /**
-     * @dataProvider invalidMaxViewsProvider
-     */
+    #[DataProvider('invalidMaxViewsProvider')]
     public function testFromStringRejectsInvalidMaxViews(int $invalid): void
     {
         $salt     = bin2hex(str_repeat('a', 16));
@@ -115,9 +114,7 @@ class CreateRequestTest extends TestCase
         CreateRequest::fromString("{$salt}\${$verifier}\${$secret}\$7200");
     }
 
-    /**
-     * @dataProvider allowedTtlProvider
-     */
+    #[DataProvider('allowedTtlProvider')]
     public function testFromStringAcceptsAllowedTtlValues(int $ttl): void
     {
         $salt     = bin2hex(str_repeat('a', 16));
@@ -173,9 +170,7 @@ class CreateRequestTest extends TestCase
         CreateRequest::fromJson('not-json');
     }
 
-    /**
-     * @dataProvider allowedTtlProvider
-     */
+    #[DataProvider('allowedTtlProvider')]
     public function testFromJsonAcceptsAllowedTtlValues(int $ttl): void
     {
         $json = json_encode([
@@ -192,9 +187,7 @@ class CreateRequestTest extends TestCase
         return [[3600], [21600], [86400], [259200], [604800]];
     }
 
-    /**
-     * @dataProvider disallowedTtlProvider
-     */
+    #[DataProvider('disallowedTtlProvider')]
     public function testFromJsonThrowsOnDisallowedTtlValue(int $ttl): void
     {
         $json = json_encode([

@@ -12,14 +12,15 @@ use Monolog\Logger;
 use PHPUnit\Framework\TestCase;
 use Predis\Client as RedisClient;
 use Swordfish\Server\ServerRoutes;
+use Swordfish\Server\Tests\Support\RedisClientStub;
 
 class DashboardMetricsTest extends TestCase
 {
     private function makeRedisMock(): RedisClient
     {
-        return $this->getMockBuilder(RedisClient::class)
+        return $this->getMockBuilder(RedisClientStub::class)
             ->disableOriginalConstructor()
-            ->addMethods(['mget'])
+            ->onlyMethods(['mget'])
             ->getMock();
     }
 

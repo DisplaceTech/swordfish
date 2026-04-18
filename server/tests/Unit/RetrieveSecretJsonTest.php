@@ -13,6 +13,7 @@ use Monolog\Logger;
 use PHPUnit\Framework\TestCase;
 use Predis\Client as RedisClient;
 use Swordfish\Server\ServerRoutes;
+use Swordfish\Server\Tests\Support\RedisClientStub;
 
 /**
  * Tests for the JSON API POST /api/retrieve handler (happy path, error paths, view limits).
@@ -23,9 +24,9 @@ class RetrieveSecretJsonTest extends TestCase
 {
     private function makeRedisMock(array $methods = ['incr', 'expire', 'get', 'eval']): RedisClient
     {
-        $redis = $this->getMockBuilder(RedisClient::class)
+        $redis = $this->getMockBuilder(RedisClientStub::class)
             ->disableOriginalConstructor()
-            ->addMethods($methods)
+            ->onlyMethods($methods)
             ->getMock();
 
         // Default: rate limiter allows the request (count = 1)
