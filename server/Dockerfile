@@ -19,7 +19,7 @@ COPY server/ /build
 RUN composer install --ignore-platform-reqs --no-scripts
 
 # PHP runtime
-FROM php:8.4-cli
+FROM php:8.4.27-cli
 
 RUN pecl install redis-6.2.0 \
   && docker-php-ext-enable redis
