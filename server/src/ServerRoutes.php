@@ -67,8 +67,14 @@ class ServerRoutes
     }
 
     /**
-     * Create a fallback handler that serves static assets from DocumentRoot and falls back
-     * to the SPA index.html for any unmatched GET request (client-side routing support).
+     * Create a fallback handler that serves static assets from DocumentRoot for any request
+     * that did not match a registered route. Paths with no matching file get DocumentRoot's
+     * 404 response. SPA client-side routes are registered explicitly in server.php, so
+     * unknown paths are not rewritten to index.html.
+     *
+     * The DocumentRoot must also be attached to the server as a ServerObserver
+     * (`$server->attach($documentRoot)`): its onStart() hook supplies the error handler
+     * it uses to build the 404 response.
      *
      * @param Logger $logger
      * @param RequestHandler $documentRoot
@@ -76,12 +82,10 @@ class ServerRoutes
      */
     public static function spaFallback(Logger $logger, RequestHandler $documentRoot): CallableRequestHandler
     {
-        $indexHtml = file_get_contents(__DIR__ . '/../static/index.html');
-        return new CallableRequestHandler(function(Request $request) use ($logger, $documentRoot, $indexHtml) {
+        return new CallableRequestHandler(function(Request $request) use ($logger, $documentRoot) {
             $response = yield $documentRoot->handleRequest($request);
-            if ($request->getMethod() === 'GET' && $response->getStatus() === Status::NOT_FOUND) {
-                $logger->info(sprintf('SPA fallback for %s', $request->getUri()->getPath()));
-                return new Response(Status::OK, array_merge(['content-type' => 'text/html'], self::securityHeaders()), $indexHtml);
+            if ($response->getStatus() === Status::NOT_FOUND) {
+                $logger->info(sprintf('Not found: %s %s', $request->getMethod(), $request->getUri()->getPath()));
             }
             foreach (self::securityHeaders() as $name => $value) {
                 $response->setHeader($name, $value);

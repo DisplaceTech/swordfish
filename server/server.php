@@ -77,6 +77,10 @@ Amp\Loop::run(function () {
     $router->setFallback(ServerRoutes::spaFallback($logger, $documentRoot));
 
     $server = new Server($servers, $router, $logger);
+    // DocumentRoot is only reachable through the CallableRequestHandler fallback, so the
+    // router never forwards onStart() to it. Attach it directly so it receives the server's
+    // error handler; without this, every missing file throws and returns a 500.
+    $server->attach($documentRoot);
     yield $server->start();
 
     // Stop the server when SIGINT is received (this is technically optional, but it is best to call Server::stop()).
