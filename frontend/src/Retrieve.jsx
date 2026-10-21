@@ -65,7 +65,7 @@ export default function Retrieve({ id: urlId }) {
         <h1 className="mb-6 text-3xl font-bold text-gray-100 sm:text-4xl">Your Secret</h1>
 
         <div className="mb-6 rounded-lg border border-gray-700 bg-gray-900 p-6">
-          <p className="whitespace-pre-wrap break-words font-mono text-gray-100">{plaintext}</p>
+          <p className="whitespace-pre-wrap wrap-break-word font-mono text-gray-100">{plaintext}</p>
         </div>
 
         <div className="flex flex-wrap gap-4 text-sm text-gray-400">
@@ -120,7 +120,7 @@ export default function Retrieve({ id: urlId }) {
             onInput={e => setSecretId(e.target.value)}
             placeholder="e.g. a1b2c3d4e5f6"
             required
-            className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-2.5 font-mono text-sm text-gray-100 placeholder-gray-600 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-2.5 font-mono text-sm text-gray-100 placeholder-gray-600 focus:border-indigo-500 focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
           />
         </div>
 
@@ -135,7 +135,7 @@ export default function Retrieve({ id: urlId }) {
             onInput={e => setPassphrase(e.target.value)}
             placeholder="Enter the passphrase used to encrypt this secret"
             required
-            className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-2.5 text-sm text-gray-100 placeholder-gray-600 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-2.5 text-sm text-gray-100 placeholder-gray-600 focus:border-indigo-500 focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
           />
         </div>
 
