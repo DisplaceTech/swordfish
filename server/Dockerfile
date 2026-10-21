@@ -21,8 +21,11 @@ RUN composer install --ignore-platform-reqs --no-scripts
 # PHP runtime
 FROM php:8.4.27-cli
 
-RUN pecl install redis-6.2.0 \
-  && docker-php-ext-enable redis
+# PIE (PHP Installer for Extensions) fetches from Packagist/GitHub instead of pecl.php.net
+COPY --from=ghcr.io/php/pie:1.5.2-bin /pie /usr/bin/pie
+RUN apt-get update && apt-get install -y --no-install-recommends unzip \
+  && rm -rf /var/lib/apt/lists/* \
+  && pie install phpredis/phpredis:6.2.0
 
 RUN docker-php-ext-install pcntl
 
