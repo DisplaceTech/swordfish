@@ -78,14 +78,14 @@ class SecurityHeadersTest extends TestCase
         $this->assertHasSecurityHeaders($response);
     }
 
-    public function testSpaFallbackIncludesSecurityHeadersOnIndexFallback(): void
+    public function testSpaFallbackIncludesSecurityHeadersOnNotFound(): void
     {
         $documentRoot = new CallableRequestHandler(function(): Response {
             return new Response(Status::NOT_FOUND, [], '');
         });
 
         $handler  = ServerRoutes::spaFallback(new Logger('test'), $documentRoot);
-        $response = \Amp\Promise\wait($handler->handleRequest($this->makeGetRequest('/about')));
+        $response = \Amp\Promise\wait($handler->handleRequest($this->makeGetRequest('/.env')));
 
         $this->assertHasSecurityHeaders($response);
     }
