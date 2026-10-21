@@ -21,7 +21,7 @@ const VIEW_OPTIONS = [
 
 const SELECT_CLASS =
   'w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 ' +
-  'focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500'
+  'focus:border-indigo-500 focus:outline-hidden focus:ring-1 focus:ring-indigo-500'
 
 export default function Create() {
   const [secret,   setSecret]   = useState('')
@@ -97,7 +97,7 @@ export default function Create() {
               type="text"
               readOnly
               value={result.link}
-              className="min-w-0 flex-1 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:outline-none"
+              className="min-w-0 flex-1 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:outline-hidden"
               onFocus={e => e.target.select()}
             />
             <button
@@ -152,7 +152,7 @@ export default function Create() {
               value={secret}
               onInput={e => setSecret(e.target.value)}
               disabled={loading}
-              className="w-full resize-y rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+              className="w-full resize-y rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
             />
           </div>
 
@@ -167,7 +167,7 @@ export default function Create() {
               value={password}
               onInput={e => setPassword(e.target.value)}
               disabled={loading}
-              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
             />
             <p className="mt-1 text-xs text-gray-500">
               Share the passphrase separately with the recipient. It is never sent to the server.
