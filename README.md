@@ -278,6 +278,7 @@ my API key: sk-abc123
 | `SERVER_PORT` | `8080` | HTTP listen port |
 | `REDIS_HOST` | `redis` | Redis hostname |
 | `REDIS_PORT` | `6379` | Redis port |
+| `TRUSTED_PROXY_CIDRS` | `10.42.0.0/16` | Comma-separated proxy CIDRs (IPv4/IPv6) whose `CF-Connecting-IP` header is trusted as the real client IP (rate limiting, request logs). Default is the k3s pod CIDR, where cloudflared runs |
 
 ## Docker
 

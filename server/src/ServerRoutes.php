@@ -397,21 +397,28 @@ class ServerRoutes
      * Accepts: {"id": "...", "verifier": "..."}
      * Returns: {"encrypted_secret": "...", "views_remaining": N, "expires_at": T}
      *
-     * Enforces a rate limit of 30 requests per minute per IP. Verifies the
+     * Enforces a rate limit of 10 requests per minute per client IP, as resolved
+     * by ClientIpResolver (CF-Connecting-IP when the peer is a trusted proxy). Verifies the
      * bcrypt-hashed verifier, decrements the view counter, and deletes all keys
      * for the secret when views are exhausted.
      *
      * @param Logger $logger
      * @param Client $redisClient
      * @param MetricsService|null $metrics
+     * @param ClientIpResolver|null $ipResolver Defaults to ClientIpResolver::fromEnvironment()
      * @return CallableRequestHandler
      */
-    public static function retrieveSecretJson(Logger $logger, Client $redisClient, ?MetricsService $metrics = null): CallableRequestHandler
-    {
+    public static function retrieveSecretJson(
+        Logger $logger,
+        Client $redisClient,
+        ?MetricsService $metrics = null,
+        ?ClientIpResolver $ipResolver = null
+    ): CallableRequestHandler {
         $service     = new SecretService($redisClient);
         $rateLimiter = new RateLimiter($redisClient);
-        return new CallableRequestHandler(function (Request $request) use ($logger, $service, $rateLimiter, $metrics) {
-            $ip          = $request->getClient()->getRemoteAddress()->getHost();
+        $ipResolver ??= ClientIpResolver::fromEnvironment();
+        return new CallableRequestHandler(function (Request $request) use ($logger, $service, $rateLimiter, $metrics, $ipResolver) {
+            $ip          = $ipResolver->resolve($request);
             $rateLimit   = $rateLimiter->isAllowed($ip);
             $rlHeaders   = array_merge(
                 [

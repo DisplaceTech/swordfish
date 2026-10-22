@@ -3,6 +3,7 @@
 require __DIR__ . '/vendor/autoload.php';
 
 use Amp\ByteStream\ResourceOutputStream;
+use Amp\Http\Server\Middleware;
 use Amp\Http\Server\Request;
 use Amp\Http\Server\RequestHandler\CallableRequestHandler;
 use Amp\Http\Server\Response;
@@ -14,6 +15,8 @@ use Amp\Log\ConsoleFormatter;
 use Amp\Log\StreamHandler;
 use Amp\Socket;
 use Monolog\Logger;
+use Swordfish\Server\ClientIpResolver;
+use Swordfish\Server\RequestLogMiddleware;
 use Swordfish\Server\ServerRoutes;
 
 Amp\Loop::run(function () {
@@ -34,6 +37,11 @@ Amp\Loop::run(function () {
         'port'   => getenv('REDIS_PORT')
     ]);
     $metrics = new Swordfish\Server\MetricsService($redisClient);
+    $ipResolver = ClientIpResolver::fromEnvironment();
+    $logger->info(sprintf(
+        'Trusting CF-Connecting-IP from proxies in %s',
+        getenv('TRUSTED_PROXY_CIDRS') ?: ClientIpResolver::DEFAULT_TRUSTED_PROXY_CIDRS
+    ));
 
     $documentRoot = new DocumentRoot(__DIR__ . '/static');
     $documentRoot->setMimeTypes([
@@ -69,14 +77,17 @@ Amp\Loop::run(function () {
     $router->addRoute('POST', '/api/create', ServerRoutes::createSecret($logger, $redisClient, $metrics));
     $router->addRoute('POST', '/create', ServerRoutes::redirectCreate($logger));
     $router->addRoute('GET', '/api/secret/{secretId}/info', ServerRoutes::secretInfo($logger, $redisClient));
-    $router->addRoute('POST', '/api/retrieve', ServerRoutes::retrieveSecretJson($logger, $redisClient, $metrics));
+    $router->addRoute('POST', '/api/retrieve', ServerRoutes::retrieveSecretJson($logger, $redisClient, $metrics, $ipResolver));
     $router->addRoute('POST', '/retrieve', ServerRoutes::redirectRetrieve($logger));
     $router->addRoute('GET', '/api/metrics', ServerRoutes::metricsEndpoint($logger, $redisClient));
     $router->addRoute('GET', '/api/metrics/dashboard', ServerRoutes::dashboardMetrics($logger, $redisClient));
 
     $router->setFallback(ServerRoutes::spaFallback($logger, $documentRoot));
 
-    $server = new Server($servers, $router, $logger);
+    // Log every request with the real client IP (Amp's own debug lines only see the proxy peer).
+    $handler = Middleware\stack($router, new RequestLogMiddleware($logger, $ipResolver));
+
+    $server = new Server($servers, $handler, $logger);
     // DocumentRoot is only reachable through the CallableRequestHandler fallback, so the
     // router never forwards onStart() to it. Attach it directly so it receives the server's
     // error handler; without this, every missing file throws and returns a 500.

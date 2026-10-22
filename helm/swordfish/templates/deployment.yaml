@@ -44,6 +44,10 @@ spec:
               value: {{ include "swordfish.fullname" . }}-redis-master
             - name: REDIS_PORT
               value: "6379"
+            {{- with .Values.server.env.TRUSTED_PROXY_CIDRS }}
+            - name: TRUSTED_PROXY_CIDRS
+              value: {{ . | quote }}
+            {{- end }}
           resources:
             {{- toYaml .Values.server.resources | nindent 12 }}
       {{- with .Values.server.nodeSelector }}
