@@ -49,6 +49,9 @@ server:
   affinity: {}
   env:
     SERVER_PORT: "8080"
+    # Proxies (cloudflared pods) whose CF-Connecting-IP header is trusted as the client IP.
+    # Comma-separated IPv4/IPv6 CIDRs; defaults to the k3s pod CIDR.
+    TRUSTED_PROXY_CIDRS: "10.42.0.0/16"
 
 redis:
   architecture: standalone

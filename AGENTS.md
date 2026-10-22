@@ -8,6 +8,8 @@ PHP secret-sharing application using the Amphp async HTTP server framework. Secr
   - `server.php` — Entry point: wires up sockets, Redis client, and routes
   - `src/ServerRoutes.php` — All route handlers as static factory methods returning `CallableRequestHandler`
   - `src/CreateRequest.php` / `src/RetrievalRequest.php` — Request value objects
+  - `src/ClientIpResolver.php` — Real client IP (CF-Connecting-IP from trusted proxies, else socket peer); use it instead of `getRemoteAddress()`
+  - `src/RequestLogMiddleware.php` — One log line per request: method, path, status, resolved client IP
   - `docker-compose.yml` — Production compose (server + redis)
   - `docker-compose.dev.yml` — Dev overrides
   - `Dockerfile` — Multi-stage: composer builder → php:8.4-cli runtime
@@ -56,6 +58,7 @@ npm run lint          # run ESLint
 | `REDIS_HOST` | redis | Redis hostname |
 | `REDIS_PORT` | 6379 | Redis port |
 | `SERVER_PORT` | 8080 | HTTP listen port |
+| `TRUSTED_PROXY_CIDRS` | 10.42.0.0/16 | Comma-separated proxy CIDRs (IPv4/IPv6) whose `CF-Connecting-IP` is trusted; see `src/ClientIpResolver.php` |
 
 ## CI/CD
 - GitHub Actions workflow at `.github/workflows/build.yml` builds and pushes the Docker image to GHCR on pushes to `main` or PRs touching `server/**`
