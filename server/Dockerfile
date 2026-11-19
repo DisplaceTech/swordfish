@@ -19,7 +19,7 @@ COPY server/ /build
 RUN composer install --ignore-platform-reqs --no-scripts
 
 # PHP runtime
-FROM php:8.4.27-cli
+FROM php:8.4.28-cli
 
 # PIE (PHP Installer for Extensions) fetches from Packagist/GitHub instead of pecl.php.net
 COPY --from=ghcr.io/php/pie:1.5.2-bin /pie /usr/bin/pie
